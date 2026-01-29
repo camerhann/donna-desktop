@@ -18,6 +18,11 @@ class DonnaTerminal {
     this.onResizeDisposable = null;
     this.pathInterval = null;
 
+    // Command history for AI context (V5)
+    this.commandHistory = [];
+    this.currentLine = '';
+    this.maxHistorySize = 100;
+
     // Note: init() must be called explicitly and awaited by the caller
     // to avoid race conditions. Don't auto-call here.
   }
@@ -149,8 +154,27 @@ class DonnaTerminal {
       }
     });
 
-    // Handle user input - store disposable for cleanup
+    // Handle user input - store disposable for cleanup and track history
     this.onDataDisposable = this.term.onData((data) => {
+      // Track command history for AI suggestions
+      if (data === '\r' || data === '\n') {
+        // Enter pressed - save command to history
+        if (this.currentLine.trim()) {
+          this.commandHistory.push(this.currentLine.trim());
+          if (this.commandHistory.length > this.maxHistorySize) {
+            this.commandHistory.shift();
+          }
+          // Expose history globally for AI suggestions
+          window.terminalHistory = this.commandHistory;
+        }
+        this.currentLine = '';
+      } else if (data === '\x7f') {
+        // Backspace
+        this.currentLine = this.currentLine.slice(0, -1);
+      } else if (data.charCodeAt(0) >= 32) {
+        // Printable characters
+        this.currentLine += data;
+      }
       window.donnaTerminal.write(this.sessionId, data);
     });
 
@@ -222,6 +246,12 @@ class DonnaTerminal {
       // Command Blocks - visual grouping of commands
       if (config.features?.commandBlocks !== false && window.CommandBlockManager) {
         this.commandBlocks = new window.CommandBlockManager(this, config.commandBlocks || {});
+        // Attach container to terminal wrapper
+        const termBody = this.wrapper.querySelector('.terminal-body');
+        if (termBody && this.commandBlocks.blocksContainer) {
+          termBody.style.position = 'relative';
+          termBody.appendChild(this.commandBlocks.blocksContainer);
+        }
       }
 
       // AI Suggestions - intelligent command completion
