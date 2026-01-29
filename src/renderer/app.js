@@ -172,21 +172,46 @@ class DonnaApp {
     // Feature toggle events
     window.addEventListener('featureToggled', (e) => {
       const { feature, enabled } = e.detail;
-      if (feature === 'commandPalette') {
-        this.commandPalette?.setEnabled(enabled);
+      switch (feature) {
+        case 'commandPalette':
+          this.commandPalette?.setEnabled(enabled);
+          break;
+        case 'aiSuggestions':
+          // Propagate to all terminal sessions
+          this.sessionManager.getAllSessions().forEach(session => {
+            if (session.terminal?.aiSuggestions) {
+              session.terminal.aiSuggestions.setEnabled(enabled);
+            }
+          });
+          break;
+        case 'commandBlocks':
+          // Propagate to all terminal sessions
+          this.sessionManager.getAllSessions().forEach(session => {
+            if (session.terminal?.commandBlocks) {
+              session.terminal.commandBlocks.setEnabled(enabled);
+            }
+          });
+          break;
       }
     });
   }
 
   /**
    * Execute a command in the active terminal
+   * Returns a promise that resolves after command is sent
    */
   executeCommand(command) {
-    const activeSession = this.sessionManager.getActiveSession();
-    if (activeSession?.terminal) {
+    return new Promise((resolve, reject) => {
+      const activeSession = this.sessionManager.getActiveSession();
+      if (!activeSession?.terminal) {
+        reject(new Error('No active terminal'));
+        return;
+      }
       // Write command + Enter to terminal
       activeSession.terminal.write(command + '\r');
-    }
+      // Resolve after brief delay (command sent, not necessarily complete)
+      setTimeout(() => resolve(), 100);
+    });
   }
 
   /**

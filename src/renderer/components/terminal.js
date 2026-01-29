@@ -168,6 +168,9 @@ class DonnaTerminal {
     // Update path periodically
     this.startPathUpdates();
 
+    // Initialize power features (V5)
+    await this.initPowerFeatures();
+
     return this;
   }
 
@@ -202,6 +205,32 @@ class DonnaTerminal {
         this.updatePath();
       }
     }, 2000);
+  }
+
+  /**
+   * Initialize terminal power features (V5)
+   */
+  async initPowerFeatures() {
+    try {
+      const config = await window.donnaTerminal?.getTerminalConfig?.();
+      if (!config) return;
+
+      // Command Blocks - visual grouping of commands
+      if (config.features?.commandBlocks !== false && window.CommandBlockManager) {
+        this.commandBlocks = new window.CommandBlockManager(this, config.commandBlocks || {});
+      }
+
+      // AI Suggestions - intelligent command completion
+      if (config.features?.aiSuggestions !== false && window.AISuggestionManager) {
+        this.aiSuggestions = new window.AISuggestionManager(this, config.aiSuggestions || {});
+        const termBody = this.wrapper.querySelector('.terminal-body');
+        if (termBody) {
+          this.aiSuggestions.attach(termBody);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to initialize power features:', error);
+    }
   }
 
   /**

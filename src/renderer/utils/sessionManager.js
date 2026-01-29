@@ -64,6 +64,18 @@ class SessionManager {
   }
 
   /**
+   * Find a session by its backend ID (V4)
+   */
+  findSessionByBackendId(backendId) {
+    for (const session of this.sessions.values()) {
+      if (session.backendId === backendId) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Generate a unique session ID
    */
   generateId() {

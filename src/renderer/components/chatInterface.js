@@ -644,7 +644,13 @@ class DonnaChat {
 
     try {
       // Start streaming
-      const { streamId } = await window.donnaChat.streamMessage(this.sessionId, content);
+      const { streamId } = window.donnaChat.streamMessage(this.sessionId, content);
+
+      // Register stream with session manager for callback routing (V4 fix)
+      const localSession = window.sessionManager?.findSessionByBackendId?.(this.sessionId);
+      if (localSession) {
+        window.sessionManager.registerStream(streamId, localSession.id);
+      }
 
       // The actual streaming is handled via IPC events
       // Content will be appended by handleStreamChunk
