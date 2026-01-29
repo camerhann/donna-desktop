@@ -57,6 +57,8 @@
 
 **Problem**: Terminal sometimes doesn't scroll all the way down to show the latest output.
 
+**Related Bug** (Issue #9): After accepting an inline command, chat terminal scrolls all the way to the TOP. Different symptom - scroll position being reset to 0 rather than not scrolling down enough.
+
 **Likely cause**: Display rendering isn't detecting that the terminal content has moved on. The scroll position update may be firing before the new content is fully rendered, or we're not tracking content height changes properly.
 
 **Investigation areas**:
