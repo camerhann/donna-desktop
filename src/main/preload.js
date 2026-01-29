@@ -32,13 +32,8 @@ contextBridge.exposeInMainWorld('platform', {
 
 // Model providers API
 contextBridge.exposeInMainWorld('donnaModels', {
-  // List available providers
   listProviders: () => ipcRenderer.invoke('models:listProviders'),
-
-  // Chat with a model (non-streaming)
   chat: (messages, options = {}) => ipcRenderer.invoke('models:chat', { messages, options }),
-
-  // Stream from a model
   stream: (messages, options = {}) => {
     const streamId = Math.random().toString(36).substr(2, 9);
     return {
@@ -46,8 +41,6 @@ contextBridge.exposeInMainWorld('donnaModels', {
       start: () => ipcRenderer.invoke('models:streamStart', { streamId, messages, options })
     };
   },
-
-  // Stream event listeners
   onStreamChunk: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('models:streamChunk', handler);
@@ -67,14 +60,9 @@ contextBridge.exposeInMainWorld('donnaModels', {
 
 // Orchestrator API (Donna's AI coordination)
 contextBridge.exposeInMainWorld('donnaOrchestrator', {
-  // Agent management
   spawnAgent: (config = {}) => ipcRenderer.invoke('orchestrator:spawnAgent', config),
   terminateAgent: (agentId) => ipcRenderer.invoke('orchestrator:terminateAgent', { agentId }),
-
-  // Task management
   createTask: (config) => ipcRenderer.invoke('orchestrator:createTask', config),
-
-  // Stream a task
   streamTask: (config) => {
     const streamId = Math.random().toString(36).substr(2, 9);
     return {
@@ -82,15 +70,9 @@ contextBridge.exposeInMainWorld('donnaOrchestrator', {
       start: () => ipcRenderer.invoke('orchestrator:streamTask', { streamId, config })
     };
   },
-
-  // Execute complex task with automatic planning
   executeComplex: (description, context = []) =>
     ipcRenderer.invoke('orchestrator:executeComplex', { description, context }),
-
-  // Get orchestrator status
   getStatus: () => ipcRenderer.invoke('orchestrator:status'),
-
-  // Task stream event listeners
   onTaskChunk: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('orchestrator:taskChunk', handler);
@@ -110,13 +92,8 @@ contextBridge.exposeInMainWorld('donnaOrchestrator', {
 
 // Image generation API
 contextBridge.exposeInMainWorld('donnaImaging', {
-  // Provider management
   listProviders: () => ipcRenderer.invoke('imaging:listProviders'),
-
-  // Image generation
   generate: (prompt, options = {}) => ipcRenderer.invoke('imaging:generate', { prompt, options }),
-
-  // Local SD installation
   checkRequirements: () => ipcRenderer.invoke('imaging:checkRequirements'),
   getInstallStatus: () => ipcRenderer.invoke('imaging:getInstallStatus'),
   installComfyUI: () => ipcRenderer.invoke('imaging:installComfyUI'),
@@ -124,19 +101,54 @@ contextBridge.exposeInMainWorld('donnaImaging', {
   stopComfyUI: () => ipcRenderer.invoke('imaging:stopComfyUI'),
   isComfyUIRunning: () => ipcRenderer.invoke('imaging:isComfyUIRunning'),
   listModels: () => ipcRenderer.invoke('imaging:listModels'),
-
-  // File operations
   openImagesFolder: () => ipcRenderer.invoke('imaging:openImagesFolder'),
   openImage: (imagePath) => ipcRenderer.invoke('imaging:openImage', { imagePath }),
-
-  // Config
   saveConfig: (config) => ipcRenderer.invoke('imaging:saveConfig', config),
-
-  // Event listeners
   onInstallProgress: (callback) => {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('imaging:installProgress', handler);
     return () => ipcRenderer.removeListener('imaging:installProgress', handler);
+  }
+});
+
+// Chat API
+contextBridge.exposeInMainWorld('donnaChat', {
+  createSession: (config = {}) => ipcRenderer.invoke('chat:createSession', config),
+  getSession: (sessionId) => ipcRenderer.invoke('chat:getSession', { sessionId }),
+  listSessions: () => ipcRenderer.invoke('chat:listSessions'),
+  deleteSession: (sessionId) => ipcRenderer.invoke('chat:deleteSession', { sessionId }),
+  renameSession: (sessionId, name) => ipcRenderer.invoke('chat:renameSession', { sessionId, name }),
+  updateSession: (sessionId, updates) => ipcRenderer.invoke('chat:updateSession', { sessionId, updates }),
+  sendMessage: (sessionId, content) => ipcRenderer.invoke('chat:sendMessage', { sessionId, content }),
+  streamMessage: (sessionId, content) => {
+    const streamId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    ipcRenderer.invoke('chat:streamMessage', { sessionId, content, streamId });
+    return { streamId };
+  },
+  abortStream: (streamId) => ipcRenderer.invoke('chat:abortStream', { streamId }),
+  listProviders: () => ipcRenderer.invoke('chat:listProviders'),
+  updateProviderConfig: (provider, config) => ipcRenderer.invoke('chat:updateProviderConfig', { provider, config }),
+  getConfig: () => ipcRenderer.invoke('chat:getConfig'),
+  setDefaultProvider: (provider) => ipcRenderer.invoke('chat:setDefaultProvider', { provider }),
+  onStreamChunk: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:streamChunk', handler);
+    return () => ipcRenderer.removeListener('chat:streamChunk', handler);
+  },
+  onStreamComplete: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:streamComplete', handler);
+    return () => ipcRenderer.removeListener('chat:streamComplete', handler);
+  },
+  onStreamError: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:streamError', handler);
+    return () => ipcRenderer.removeListener('chat:streamError', handler);
+  },
+  onUserMessage: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:userMessage', handler);
+    return () => ipcRenderer.removeListener('chat:userMessage', handler);
   }
 });
 

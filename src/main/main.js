@@ -7,6 +7,7 @@ const { createOrchestrator } = require('./models/orchestrator');
 const { ModelManager, ClaudeProvider, GeminiProvider, OllamaProvider, OpenAICompatibleProvider } = require('./models/modelProvider');
 const { createImageManager } = require('./imaging/imageProvider');
 const sdInstaller = require('./imaging/sdInstaller');
+const { ChatManager } = require('./chat/chatManager');
 
 // Store terminal sessions
 const terminals = new Map();
@@ -20,6 +21,12 @@ let modelConfig = {};
 // Image generation
 let imageManager = null;
 let imageConfig = {};
+
+// Chat manager
+let chatManager = null;
+
+// Active streams for chat
+const activeStreams = new Map();
 
 // Config file path
 const configPath = path.join(os.homedir(), '.donna-desktop', 'config.json');
@@ -73,6 +80,14 @@ function initializeImageManager() {
   return imageManager;
 }
 
+// Initialize chat manager
+function initChatManager() {
+  if (!chatManager) {
+    chatManager = new ChatManager();
+  }
+  return chatManager;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -106,6 +121,8 @@ function getDefaultShell() {
   }
   return process.env.SHELL || '/bin/bash';
 }
+
+// === Terminal IPC Handlers ===
 
 // Create a new terminal session
 ipcMain.handle('terminal:create', (event, { id, cols, rows }) => {
@@ -176,7 +193,6 @@ ipcMain.handle('terminal:destroy', (event, { id }) => {
 ipcMain.handle('terminal:getCwd', (event, { id }) => {
   const term = terminals.get(id);
   if (term) {
-    // On macOS, we can try to get the cwd from the process
     try {
       const pid = term.pid;
       const { execSync } = require('child_process');
@@ -191,13 +207,11 @@ ipcMain.handle('terminal:getCwd', (event, { id }) => {
 
 // === Model Provider IPC Handlers ===
 
-// Get available providers
 ipcMain.handle('models:listProviders', () => {
   if (!modelManager) initializeOrchestrator();
   return modelManager.listProviders();
 });
 
-// Chat with a model
 ipcMain.handle('models:chat', async (event, { messages, options }) => {
   if (!modelManager) initializeOrchestrator();
   try {
@@ -208,11 +222,9 @@ ipcMain.handle('models:chat', async (event, { messages, options }) => {
   }
 });
 
-// Stream from a model
 ipcMain.handle('models:streamStart', async (event, { streamId, messages, options }) => {
   if (!modelManager) initializeOrchestrator();
 
-  // Start streaming in background
   (async () => {
     try {
       for await (const chunk of modelManager.stream(messages, options)) {
@@ -235,28 +247,24 @@ ipcMain.handle('models:streamStart', async (event, { streamId, messages, options
 
 // === Orchestrator IPC Handlers ===
 
-// Spawn an agent
 ipcMain.handle('orchestrator:spawnAgent', (event, config) => {
   if (!orchestrator) initializeOrchestrator();
   const agent = orchestrator.spawnAgent(config);
   return { success: true, agent: { id: agent.id, name: agent.name, role: agent.role } };
 });
 
-// Terminate an agent
 ipcMain.handle('orchestrator:terminateAgent', (event, { agentId }) => {
   if (!orchestrator) initializeOrchestrator();
   const result = orchestrator.terminateAgent(agentId);
   return { success: result };
 });
 
-// Create a task
 ipcMain.handle('orchestrator:createTask', (event, config) => {
   if (!orchestrator) initializeOrchestrator();
   const task = orchestrator.createTask(config);
   return { success: true, task: { id: task.id, type: task.type, status: task.status } };
 });
 
-// Stream a task (returns streamId for tracking)
 ipcMain.handle('orchestrator:streamTask', async (event, { streamId, config }) => {
   if (!orchestrator) initializeOrchestrator();
 
@@ -280,7 +288,6 @@ ipcMain.handle('orchestrator:streamTask', async (event, { streamId, config }) =>
   return { success: true, streamId };
 });
 
-// Execute a complex task with planning
 ipcMain.handle('orchestrator:executeComplex', async (event, { description, context }) => {
   if (!orchestrator) initializeOrchestrator();
   try {
@@ -291,7 +298,6 @@ ipcMain.handle('orchestrator:executeComplex', async (event, { description, conte
   }
 });
 
-// Get orchestrator status
 ipcMain.handle('orchestrator:status', () => {
   if (!orchestrator) initializeOrchestrator();
   return orchestrator.getStatus();
@@ -299,13 +305,11 @@ ipcMain.handle('orchestrator:status', () => {
 
 // === Image Generation IPC Handlers ===
 
-// List available image providers
 ipcMain.handle('imaging:listProviders', async () => {
   if (!imageManager) initializeImageManager();
   return await imageManager.listProviders();
 });
 
-// Generate an image
 ipcMain.handle('imaging:generate', async (event, { prompt, options }) => {
   if (!imageManager) initializeImageManager();
   try {
@@ -316,17 +320,14 @@ ipcMain.handle('imaging:generate', async (event, { prompt, options }) => {
   }
 });
 
-// Check system requirements for local SD
 ipcMain.handle('imaging:checkRequirements', async () => {
   return await sdInstaller.checkRequirements();
 });
 
-// Get SD installation status
 ipcMain.handle('imaging:getInstallStatus', () => {
   return sdInstaller.getInstallationStatus();
 });
 
-// Install ComfyUI
 ipcMain.handle('imaging:installComfyUI', async (event) => {
   return await sdInstaller.installComfyUI((progress) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -335,7 +336,6 @@ ipcMain.handle('imaging:installComfyUI', async (event) => {
   });
 });
 
-// Start ComfyUI server
 ipcMain.handle('imaging:startComfyUI', async () => {
   try {
     const result = sdInstaller.startComfyUI();
@@ -345,22 +345,18 @@ ipcMain.handle('imaging:startComfyUI', async () => {
   }
 });
 
-// Stop ComfyUI server
 ipcMain.handle('imaging:stopComfyUI', async () => {
   return await sdInstaller.stopComfyUI();
 });
 
-// Check if ComfyUI is running
 ipcMain.handle('imaging:isComfyUIRunning', async () => {
   return await sdInstaller.isComfyUIRunning();
 });
 
-// List available models
 ipcMain.handle('imaging:listModels', () => {
   return sdInstaller.listModels();
 });
 
-// Open images folder
 ipcMain.handle('imaging:openImagesFolder', () => {
   const imagesDir = path.join(os.homedir(), '.donna-desktop', 'images');
   if (!fs.existsSync(imagesDir)) {
@@ -370,7 +366,6 @@ ipcMain.handle('imaging:openImagesFolder', () => {
   return { success: true };
 });
 
-// Open image in default viewer
 ipcMain.handle('imaging:openImage', (event, { imagePath }) => {
   if (fs.existsSync(imagePath)) {
     shell.openPath(imagePath);
@@ -379,7 +374,6 @@ ipcMain.handle('imaging:openImage', (event, { imagePath }) => {
   return { success: false, error: 'Image not found' };
 });
 
-// Save imaging config
 ipcMain.handle('imaging:saveConfig', (event, config) => {
   const fullConfig = loadConfig();
   fullConfig.imaging = config;
@@ -390,25 +384,154 @@ ipcMain.handle('imaging:saveConfig', (event, config) => {
   return { success };
 });
 
+// === Chat IPC Handlers ===
+
+ipcMain.handle('chat:createSession', (event, config) => {
+  const manager = initChatManager();
+  const session = manager.createSession(config);
+  return {
+    success: true,
+    session: {
+      id: session.id,
+      name: session.name,
+      provider: session.provider,
+      model: session.model
+    }
+  };
+});
+
+ipcMain.handle('chat:getSession', (event, { sessionId }) => {
+  const manager = initChatManager();
+  const session = manager.getSession(sessionId);
+  if (session) {
+    return { success: true, session: session.toJSON() };
+  }
+  return { success: false, error: 'Session not found' };
+});
+
+ipcMain.handle('chat:listSessions', () => {
+  const manager = initChatManager();
+  return manager.listSessions();
+});
+
+ipcMain.handle('chat:deleteSession', (event, { sessionId }) => {
+  const manager = initChatManager();
+  const success = manager.deleteSession(sessionId);
+  return { success };
+});
+
+ipcMain.handle('chat:renameSession', (event, { sessionId, name }) => {
+  const manager = initChatManager();
+  const success = manager.renameSession(sessionId, name);
+  return { success };
+});
+
+ipcMain.handle('chat:updateSession', (event, { sessionId, updates }) => {
+  const manager = initChatManager();
+  const session = manager.getSession(sessionId);
+  if (session) {
+    if (updates.provider) session.provider = updates.provider;
+    if (updates.model) session.model = updates.model;
+    if (updates.systemPrompt !== undefined) session.systemPrompt = updates.systemPrompt;
+    if (updates.name) session.name = updates.name;
+    manager.saveSession(session);
+    return { success: true };
+  }
+  return { success: false, error: 'Session not found' };
+});
+
+ipcMain.handle('chat:sendMessage', async (event, { sessionId, content }) => {
+  const manager = initChatManager();
+  try {
+    const result = await manager.sendMessage(sessionId, content);
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('chat:streamMessage', async (event, { sessionId, content, streamId }) => {
+  const manager = initChatManager();
+
+  activeStreams.set(streamId, { sessionId, aborted: false });
+
+  (async () => {
+    try {
+      for await (const chunk of manager.streamMessage(sessionId, content)) {
+        if (activeStreams.get(streamId)?.aborted) {
+          break;
+        }
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          if (chunk.type === 'chunk') {
+            mainWindow.webContents.send('chat:streamChunk', { streamId, content: chunk.content });
+          } else if (chunk.type === 'complete') {
+            mainWindow.webContents.send('chat:streamComplete', { streamId, message: chunk.message });
+          } else if (chunk.type === 'error') {
+            mainWindow.webContents.send('chat:streamError', { streamId, error: chunk.error });
+          } else if (chunk.type === 'user_message') {
+            mainWindow.webContents.send('chat:userMessage', { streamId, message: chunk.message });
+          }
+        }
+      }
+    } catch (error) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('chat:streamError', { streamId, error: error.message });
+      }
+    } finally {
+      activeStreams.delete(streamId);
+    }
+  })();
+
+  return { success: true, streamId };
+});
+
+ipcMain.handle('chat:abortStream', (event, { streamId }) => {
+  const stream = activeStreams.get(streamId);
+  if (stream) {
+    stream.aborted = true;
+    return { success: true };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('chat:listProviders', () => {
+  const manager = initChatManager();
+  return manager.listProviders();
+});
+
+ipcMain.handle('chat:updateProviderConfig', (event, { provider, config }) => {
+  const manager = initChatManager();
+  manager.updateProviderConfig(provider, config);
+  return { success: true };
+});
+
+ipcMain.handle('chat:getConfig', () => {
+  const manager = initChatManager();
+  return manager.getConfig();
+});
+
+ipcMain.handle('chat:setDefaultProvider', (event, { provider }) => {
+  const manager = initChatManager();
+  manager.setDefaultProvider(provider);
+  return { success: true };
+});
+
 // === Config IPC Handlers ===
 
-// Get config
 ipcMain.handle('config:get', () => {
   return loadConfig();
 });
 
-// Set config
 ipcMain.handle('config:set', (event, config) => {
   const success = saveConfig(config);
   if (success) {
-    // Reinitialize with new config
     initializeOrchestrator();
     initializeImageManager();
   }
   return { success };
 });
 
-// Set API key for a provider
 ipcMain.handle('config:setApiKey', (event, { provider, apiKey }) => {
   loadConfig();
   if (!modelConfig.models) modelConfig.models = {};
@@ -426,6 +549,7 @@ ipcMain.handle('config:setApiKey', (event, { provider, apiKey }) => {
 app.whenReady().then(() => {
   initializeOrchestrator();
   initializeImageManager();
+  initChatManager();
   createWindow();
 });
 

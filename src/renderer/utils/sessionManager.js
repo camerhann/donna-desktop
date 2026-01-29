@@ -1,6 +1,6 @@
 /**
  * Donna Desktop - Session Manager
- * Manages terminal sessions lifecycle
+ * Manages terminal and chat sessions lifecycle
  */
 
 class SessionManager {
@@ -10,6 +10,10 @@ class SessionManager {
     this.sessionCounter = 0;
     this.sidebar = null;
     this.terminalContainer = null;
+
+    // Stream listeners for chat
+    this.streamListeners = new Map();
+    this.setupChatListeners();
   }
 
   /**
@@ -18,6 +22,45 @@ class SessionManager {
   init(sidebar, terminalContainer) {
     this.sidebar = sidebar;
     this.terminalContainer = terminalContainer;
+  }
+
+  /**
+   * Setup chat stream listeners
+   */
+  setupChatListeners() {
+    if (!window.donnaChat) return;
+
+    window.donnaChat.onStreamChunk(({ streamId, content }) => {
+      const session = this.findSessionByStreamId(streamId);
+      if (session?.chat) {
+        session.chat.handleStreamChunk(content);
+      }
+    });
+
+    window.donnaChat.onStreamComplete(({ streamId, message }) => {
+      const session = this.findSessionByStreamId(streamId);
+      if (session?.chat) {
+        session.chat.handleStreamComplete(message);
+      }
+      this.streamListeners.delete(streamId);
+    });
+
+    window.donnaChat.onStreamError(({ streamId, error }) => {
+      const session = this.findSessionByStreamId(streamId);
+      if (session?.chat) {
+        session.chat.handleStreamError(error);
+      }
+      this.streamListeners.delete(streamId);
+    });
+  }
+
+  findSessionByStreamId(streamId) {
+    const sessionId = this.streamListeners.get(streamId);
+    return sessionId ? this.sessions.get(sessionId) : null;
+  }
+
+  registerStream(streamId, sessionId) {
+    this.streamListeners.set(streamId, sessionId);
   }
 
   /**
@@ -31,16 +74,25 @@ class SessionManager {
    * Create a new terminal session
    */
   async createSession(name = null) {
+    return this.createTerminalSession(name);
+  }
+
+  /**
+   * Create a terminal session
+   */
+  async createTerminalSession(name = null) {
     const id = this.generateId();
-    const sessionName = name || `Session ${this.sessionCounter}`;
+    const sessionName = name || `Terminal ${this.sessionCounter}`;
 
     // Create session object
     const session = {
       id,
       name: sessionName,
+      type: 'terminal',
       path: '~',
       createdAt: new Date(),
-      terminal: null
+      terminal: null,
+      chat: null
     };
 
     // Hide welcome screen
@@ -69,28 +121,92 @@ class SessionManager {
   }
 
   /**
+   * Create a chat session
+   */
+  async createChatSession(name = null, config = {}) {
+    const id = this.generateId();
+
+    // Create chat session on backend
+    const result = await window.donnaChat.createSession({
+      name: name || `Chat ${this.sessionCounter}`,
+      provider: config.provider || 'claude',
+      model: config.model,
+      systemPrompt: config.systemPrompt
+    });
+
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to create chat session');
+    }
+
+    const backendSession = result.session;
+
+    // Create local session object
+    const session = {
+      id,
+      backendId: backendSession.id,
+      name: backendSession.name,
+      type: 'chat',
+      provider: backendSession.provider,
+      model: backendSession.model,
+      createdAt: new Date(),
+      terminal: null,
+      chat: null
+    };
+
+    // Hide welcome screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    if (welcomeScreen) {
+      welcomeScreen.style.display = 'none';
+    }
+
+    this.terminalContainer?.classList.add('has-terminal');
+
+    // Create chat instance
+    const chat = new DonnaChat(backendSession.id, this.terminalContainer, {
+      provider: backendSession.provider,
+      model: backendSession.model
+    });
+    session.chat = chat;
+
+    // Store session
+    this.sessions.set(id, session);
+
+    // Add to sidebar
+    this.sidebar?.addSession(session);
+
+    // Switch to this session
+    await this.switchToSession(id);
+
+    return session;
+  }
+
+  /**
    * Switch to a specific session
    */
   async switchToSession(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    // Hide current session's terminal
+    // Hide current session
     if (this.activeSessionId && this.activeSessionId !== sessionId) {
       const currentSession = this.sessions.get(this.activeSessionId);
       if (currentSession?.terminal) {
         currentSession.terminal.hide();
       }
+      if (currentSession?.chat) {
+        currentSession.chat.hide();
+      }
     }
 
-    // Show new session's terminal
+    // Show new session
     this.activeSessionId = sessionId;
 
-    // Wait for terminal to be ready
-    if (session.terminal) {
-      // Small delay to ensure terminal is ready
-      await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    if (session.type === 'terminal' && session.terminal) {
       session.terminal.show();
+    } else if (session.type === 'chat' && session.chat) {
+      session.chat.show();
     }
 
     // Update sidebar
@@ -104,9 +220,12 @@ class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    // Destroy terminal
+    // Destroy terminal or chat
     if (session.terminal) {
       await session.terminal.destroy();
+    }
+    if (session.chat) {
+      await session.chat.destroy();
     }
 
     // Remove from sessions
@@ -119,12 +238,10 @@ class SessionManager {
     if (this.activeSessionId === sessionId) {
       this.activeSessionId = null;
 
-      // Switch to the most recent session
       const remainingSessions = Array.from(this.sessions.keys());
       if (remainingSessions.length > 0) {
         await this.switchToSession(remainingSessions[remainingSessions.length - 1]);
       } else {
-        // No sessions left - show welcome screen
         const welcomeScreen = document.getElementById('welcome-screen');
         if (welcomeScreen) {
           welcomeScreen.style.display = 'flex';
@@ -140,7 +257,6 @@ class SessionManager {
   handleSessionExit(sessionId) {
     const session = this.sessions.get(sessionId);
     if (session) {
-      // Update sidebar to show inactive state
       this.sidebar?.updateSession(sessionId, { status: false });
     }
   }
