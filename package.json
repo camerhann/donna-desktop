@@ -13,7 +13,8 @@
   "license": "MIT",
   "devDependencies": {
     "electron": "^33.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.0.0",
+    "fs-extra": "^11.3.3"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",

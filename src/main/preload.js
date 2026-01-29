@@ -29,3 +29,88 @@ contextBridge.exposeInMainWorld('platform', {
   isWindows: process.platform === 'win32',
   isLinux: process.platform === 'linux'
 });
+
+// Model providers API
+contextBridge.exposeInMainWorld('donnaModels', {
+  // List available providers
+  listProviders: () => ipcRenderer.invoke('models:listProviders'),
+
+  // Chat with a model (non-streaming)
+  chat: (messages, options = {}) => ipcRenderer.invoke('models:chat', { messages, options }),
+
+  // Stream from a model
+  stream: (messages, options = {}) => {
+    const streamId = Math.random().toString(36).substr(2, 9);
+    return {
+      streamId,
+      start: () => ipcRenderer.invoke('models:streamStart', { streamId, messages, options })
+    };
+  },
+
+  // Stream event listeners
+  onStreamChunk: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('models:streamChunk', handler);
+    return () => ipcRenderer.removeListener('models:streamChunk', handler);
+  },
+  onStreamEnd: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('models:streamEnd', handler);
+    return () => ipcRenderer.removeListener('models:streamEnd', handler);
+  },
+  onStreamError: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('models:streamError', handler);
+    return () => ipcRenderer.removeListener('models:streamError', handler);
+  }
+});
+
+// Orchestrator API (Donna's AI coordination)
+contextBridge.exposeInMainWorld('donnaOrchestrator', {
+  // Agent management
+  spawnAgent: (config = {}) => ipcRenderer.invoke('orchestrator:spawnAgent', config),
+  terminateAgent: (agentId) => ipcRenderer.invoke('orchestrator:terminateAgent', { agentId }),
+
+  // Task management
+  createTask: (config) => ipcRenderer.invoke('orchestrator:createTask', config),
+
+  // Stream a task
+  streamTask: (config) => {
+    const streamId = Math.random().toString(36).substr(2, 9);
+    return {
+      streamId,
+      start: () => ipcRenderer.invoke('orchestrator:streamTask', { streamId, config })
+    };
+  },
+
+  // Execute complex task with automatic planning
+  executeComplex: (description, context = []) =>
+    ipcRenderer.invoke('orchestrator:executeComplex', { description, context }),
+
+  // Get orchestrator status
+  getStatus: () => ipcRenderer.invoke('orchestrator:status'),
+
+  // Task stream event listeners
+  onTaskChunk: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('orchestrator:taskChunk', handler);
+    return () => ipcRenderer.removeListener('orchestrator:taskChunk', handler);
+  },
+  onTaskEnd: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('orchestrator:taskEnd', handler);
+    return () => ipcRenderer.removeListener('orchestrator:taskEnd', handler);
+  },
+  onTaskError: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('orchestrator:taskError', handler);
+    return () => ipcRenderer.removeListener('orchestrator:taskError', handler);
+  }
+});
+
+// Config API
+contextBridge.exposeInMainWorld('donnaConfig', {
+  get: () => ipcRenderer.invoke('config:get'),
+  set: (config) => ipcRenderer.invoke('config:set', config),
+  setApiKey: (provider, apiKey) => ipcRenderer.invoke('config:setApiKey', { provider, apiKey })
+});

@@ -7,6 +7,7 @@ class DonnaApp {
   constructor() {
     this.sidebar = null;
     this.sessionManager = window.sessionManager;
+    this.modelSettings = null;
   }
 
   /**
@@ -18,6 +19,10 @@ class DonnaApp {
     // Initialize sidebar
     this.sidebar = new DonnaSidebar();
 
+    // Initialize model settings
+    this.modelSettings = new ModelSettings();
+    await this.modelSettings.init();
+
     // Initialize session manager with references
     const terminalContainer = document.getElementById('terminal-container');
     this.sessionManager.init(this.sidebar, terminalContainer);
@@ -26,6 +31,12 @@ class DonnaApp {
     const startBtn = document.getElementById('start-session-btn');
     startBtn?.addEventListener('click', () => {
       this.sessionManager.createSession();
+    });
+
+    // Bind settings button
+    const settingsBtn = document.getElementById('settings-btn');
+    settingsBtn?.addEventListener('click', () => {
+      this.modelSettings.open();
     });
 
     // Handle window resize
@@ -103,6 +114,13 @@ class DonnaApp {
         if (activeSession?.terminal) {
           activeSession.terminal.clear();
         }
+        return;
+      }
+
+      // Cmd+,: Open settings
+      if (cmdOrCtrl && e.key === ',') {
+        e.preventDefault();
+        this.modelSettings.open();
         return;
       }
     });
