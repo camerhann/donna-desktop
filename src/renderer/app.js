@@ -7,6 +7,7 @@ class DonnaApp {
   constructor() {
     this.sidebar = null;
     this.sessionManager = window.sessionManager;
+    this.imageGenerator = null;
   }
 
   /**
@@ -17,6 +18,10 @@ class DonnaApp {
 
     // Initialize sidebar
     this.sidebar = new DonnaSidebar();
+
+    // Initialize image generator
+    this.imageGenerator = window.imageGenerator;
+    await this.imageGenerator.init();
 
     // Initialize session manager with references
     const terminalContainer = document.getElementById('terminal-container');
@@ -103,6 +108,13 @@ class DonnaApp {
         if (activeSession?.terminal) {
           activeSession.terminal.clear();
         }
+        return;
+      }
+
+      // Cmd+G: Open image generator
+      if (cmdOrCtrl && e.key === 'g') {
+        e.preventDefault();
+        this.imageGenerator.open();
         return;
       }
     });

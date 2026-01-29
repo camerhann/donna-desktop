@@ -29,3 +29,35 @@ contextBridge.exposeInMainWorld('platform', {
   isWindows: process.platform === 'win32',
   isLinux: process.platform === 'linux'
 });
+
+// Image generation API
+contextBridge.exposeInMainWorld('donnaImaging', {
+  // Provider management
+  listProviders: () => ipcRenderer.invoke('imaging:listProviders'),
+
+  // Image generation
+  generate: (prompt, options = {}) => ipcRenderer.invoke('imaging:generate', { prompt, options }),
+
+  // Local SD installation
+  checkRequirements: () => ipcRenderer.invoke('imaging:checkRequirements'),
+  getInstallStatus: () => ipcRenderer.invoke('imaging:getInstallStatus'),
+  installComfyUI: () => ipcRenderer.invoke('imaging:installComfyUI'),
+  startComfyUI: () => ipcRenderer.invoke('imaging:startComfyUI'),
+  stopComfyUI: () => ipcRenderer.invoke('imaging:stopComfyUI'),
+  isComfyUIRunning: () => ipcRenderer.invoke('imaging:isComfyUIRunning'),
+  listModels: () => ipcRenderer.invoke('imaging:listModels'),
+
+  // File operations
+  openImagesFolder: () => ipcRenderer.invoke('imaging:openImagesFolder'),
+  openImage: (imagePath) => ipcRenderer.invoke('imaging:openImage', { imagePath }),
+
+  // Config
+  saveConfig: (config) => ipcRenderer.invoke('imaging:saveConfig', config),
+
+  // Event listeners
+  onInstallProgress: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('imaging:installProgress', handler);
+    return () => ipcRenderer.removeListener('imaging:installProgress', handler);
+  }
+});

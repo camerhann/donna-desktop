@@ -1,11 +1,57 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const pty = require('node-pty');
+const { createImageManager } = require('./imaging/imageProvider');
+const sdInstaller = require('./imaging/sdInstaller');
 
 // Store terminal sessions
 const terminals = new Map();
 let mainWindow = null;
+
+// Image generation
+let imageManager = null;
+let imageConfig = {};
+
+// Config file path
+const configPath = path.join(os.homedir(), '.donna-desktop', 'config.json');
+
+// Load config
+function loadConfig() {
+  try {
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      imageConfig = config.imaging || {};
+      return config;
+    }
+  } catch (e) {
+    console.error('Failed to load config:', e);
+  }
+  return {};
+}
+
+// Save config
+function saveConfig(config) {
+  try {
+    const dir = path.dirname(configPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+    return true;
+  } catch (e) {
+    console.error('Failed to save config:', e);
+    return false;
+  }
+}
+
+// Initialize image manager
+function initializeImageManager() {
+  loadConfig();
+  imageManager = createImageManager(imageConfig);
+  return imageManager;
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -123,7 +169,105 @@ ipcMain.handle('terminal:getCwd', (event, { id }) => {
   return { success: false, error: 'Terminal not found' };
 });
 
-app.whenReady().then(createWindow);
+// === Image Generation IPC Handlers ===
+
+// List available image providers
+ipcMain.handle('imaging:listProviders', async () => {
+  if (!imageManager) initializeImageManager();
+  return await imageManager.listProviders();
+});
+
+// Generate an image
+ipcMain.handle('imaging:generate', async (event, { prompt, options }) => {
+  if (!imageManager) initializeImageManager();
+  try {
+    const result = await imageManager.generate(prompt, options);
+    return { success: true, result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Check system requirements for local SD
+ipcMain.handle('imaging:checkRequirements', async () => {
+  return await sdInstaller.checkRequirements();
+});
+
+// Get SD installation status
+ipcMain.handle('imaging:getInstallStatus', () => {
+  return sdInstaller.getInstallationStatus();
+});
+
+// Install ComfyUI
+ipcMain.handle('imaging:installComfyUI', async (event) => {
+  return await sdInstaller.installComfyUI((progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('imaging:installProgress', progress);
+    }
+  });
+});
+
+// Start ComfyUI server
+ipcMain.handle('imaging:startComfyUI', async () => {
+  try {
+    const result = sdInstaller.startComfyUI();
+    return { success: true, ...result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Stop ComfyUI server
+ipcMain.handle('imaging:stopComfyUI', async () => {
+  return await sdInstaller.stopComfyUI();
+});
+
+// Check if ComfyUI is running
+ipcMain.handle('imaging:isComfyUIRunning', async () => {
+  return await sdInstaller.isComfyUIRunning();
+});
+
+// List available models
+ipcMain.handle('imaging:listModels', () => {
+  return sdInstaller.listModels();
+});
+
+// Open images folder
+ipcMain.handle('imaging:openImagesFolder', () => {
+  const imagesDir = path.join(os.homedir(), '.donna-desktop', 'images');
+  if (!fs.existsSync(imagesDir)) {
+    fs.mkdirSync(imagesDir, { recursive: true });
+  }
+  shell.openPath(imagesDir);
+  return { success: true };
+});
+
+// Open image in default viewer
+ipcMain.handle('imaging:openImage', (event, { imagePath }) => {
+  if (fs.existsSync(imagePath)) {
+    shell.openPath(imagePath);
+    return { success: true };
+  }
+  return { success: false, error: 'Image not found' };
+});
+
+// Save imaging config
+ipcMain.handle('imaging:saveConfig', (event, config) => {
+  const fullConfig = loadConfig();
+  fullConfig.imaging = config;
+  const success = saveConfig(fullConfig);
+  if (success) {
+    initializeImageManager();
+  }
+  return { success };
+});
+
+// === App Lifecycle ===
+
+app.whenReady().then(() => {
+  initializeImageManager();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   // Clean up all terminals
