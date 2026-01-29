@@ -8,6 +8,7 @@ class DonnaApp {
     this.sidebar = null;
     this.sessionManager = window.sessionManager;
     this.modelSettings = null;
+    this.imageGenerator = null;
   }
 
   /**
@@ -22,6 +23,12 @@ class DonnaApp {
     // Initialize model settings
     this.modelSettings = new ModelSettings();
     await this.modelSettings.init();
+
+    // Initialize image generator
+    this.imageGenerator = window.imageGenerator;
+    if (this.imageGenerator) {
+      await this.imageGenerator.init();
+    }
 
     // Initialize session manager with references
     const terminalContainer = document.getElementById('terminal-container');
@@ -121,6 +128,15 @@ class DonnaApp {
       if (cmdOrCtrl && e.key === ',') {
         e.preventDefault();
         this.modelSettings.open();
+        return;
+      }
+
+      // Cmd+G: Open image generator
+      if (cmdOrCtrl && e.key === 'g') {
+        e.preventDefault();
+        if (this.imageGenerator) {
+          this.imageGenerator.open();
+        }
         return;
       }
     });
