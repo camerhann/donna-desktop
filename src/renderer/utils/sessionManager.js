@@ -52,9 +52,21 @@ class SessionManager {
     // Mark container as having terminal
     this.terminalContainer?.classList.add('has-terminal');
 
-    // Create terminal instance
-    const terminal = new DonnaTerminal(id, this.terminalContainer);
-    session.terminal = terminal;
+    // Create terminal instance and await initialization
+    try {
+      const terminal = new DonnaTerminal(id, this.terminalContainer);
+      await terminal.init();
+      session.terminal = terminal;
+    } catch (error) {
+      console.error('Failed to initialize terminal:', error);
+      // Show welcome screen again on failure
+      const welcomeScreen = document.getElementById('welcome-screen');
+      if (welcomeScreen) {
+        welcomeScreen.style.display = 'flex';
+      }
+      this.terminalContainer?.classList.remove('has-terminal');
+      return null;
+    }
 
     // Store session
     this.sessions.set(id, session);
@@ -86,11 +98,15 @@ class SessionManager {
     // Show new session's terminal
     this.activeSessionId = sessionId;
 
-    // Wait for terminal to be ready
-    if (session.terminal) {
-      // Small delay to ensure terminal is ready
-      await new Promise(resolve => setTimeout(resolve, 50));
+    // Wait for terminal to be ready before showing
+    if (session.terminal && session.terminal.isReady) {
       session.terminal.show();
+    } else if (session.terminal) {
+      // Terminal still initializing, wait briefly
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (session.terminal.isReady) {
+        session.terminal.show();
+      }
     }
 
     // Update sidebar

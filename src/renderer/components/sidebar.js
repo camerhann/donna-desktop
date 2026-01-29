@@ -18,13 +18,8 @@ class DonnaSidebar {
       window.sessionManager?.createSession();
     });
 
-    // Keyboard shortcut for new session (Cmd+T)
-    document.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
-        e.preventDefault();
-        window.sessionManager?.createSession();
-      }
-    });
+    // Note: Cmd+T keyboard shortcut is handled globally in app.js
+    // to avoid duplicate listeners
 
     // Show empty state initially
     this.renderEmptyState();

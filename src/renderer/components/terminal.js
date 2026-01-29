@@ -14,8 +14,12 @@ class DonnaTerminal {
     this.isReady = false;
     this.cleanupDataListener = null;
     this.cleanupExitListener = null;
+    this.onDataDisposable = null;
+    this.onResizeDisposable = null;
+    this.pathInterval = null;
 
-    this.init();
+    // Note: init() must be called explicitly and awaited by the caller
+    // to avoid race conditions. Don't auto-call here.
   }
 
   async init() {
@@ -141,13 +145,13 @@ class DonnaTerminal {
       }
     });
 
-    // Handle user input
-    this.term.onData((data) => {
+    // Handle user input - store disposable for cleanup
+    this.onDataDisposable = this.term.onData((data) => {
       window.donnaTerminal.write(this.sessionId, data);
     });
 
-    // Handle resize
-    this.term.onResize(({ cols, rows }) => {
+    // Handle resize - store disposable for cleanup
+    this.onResizeDisposable = this.term.onResize(({ cols, rows }) => {
       window.donnaTerminal.resize(this.sessionId, cols, rows);
     });
 
@@ -204,6 +208,10 @@ class DonnaTerminal {
     this.focus();
     this.fit();
     this.updatePath();
+    // Resume path updates when shown
+    if (!this.pathInterval) {
+      this.startPathUpdates();
+    }
   }
 
   /**
@@ -211,6 +219,11 @@ class DonnaTerminal {
    */
   hide() {
     this.wrapper.classList.remove('active');
+    // Pause path updates when hidden to reduce unnecessary IPC calls
+    if (this.pathInterval) {
+      clearInterval(this.pathInterval);
+      this.pathInterval = null;
+    }
   }
 
   /**
@@ -256,28 +269,48 @@ class DonnaTerminal {
     // Clear interval
     if (this.pathInterval) {
       clearInterval(this.pathInterval);
+      this.pathInterval = null;
     }
 
-    // Remove listeners
+    // Remove IPC listeners
     if (this.cleanupDataListener) {
       this.cleanupDataListener();
+      this.cleanupDataListener = null;
     }
     if (this.cleanupExitListener) {
       this.cleanupExitListener();
+      this.cleanupExitListener = null;
+    }
+
+    // Dispose xterm event listeners
+    if (this.onDataDisposable) {
+      this.onDataDisposable.dispose();
+      this.onDataDisposable = null;
+    }
+    if (this.onResizeDisposable) {
+      this.onResizeDisposable.dispose();
+      this.onResizeDisposable = null;
     }
 
     // Kill PTY process
-    await window.donnaTerminal.destroy(this.sessionId);
+    try {
+      await window.donnaTerminal.destroy(this.sessionId);
+    } catch (e) {
+      console.error('Failed to destroy PTY:', e);
+    }
 
     // Dispose xterm
     if (this.term) {
       this.term.dispose();
+      this.term = null;
     }
 
     // Remove from DOM
     if (this.wrapper && this.wrapper.parentNode) {
       this.wrapper.parentNode.removeChild(this.wrapper);
     }
+
+    this.isReady = false;
   }
 }
 
