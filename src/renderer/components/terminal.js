@@ -57,10 +57,14 @@ class DonnaTerminal {
     const terminalBody = this.wrapper.querySelector(`#body-${this.sessionId}`);
 
     // Initialize xterm with Donna theme
-    const { Terminal } = await import('@xterm/xterm');
-    const { FitAddon } = await import('@xterm/addon-fit');
-    const { WebLinksAddon } = await import('@xterm/addon-web-links');
-    const { Unicode11Addon } = await import('@xterm/addon-unicode11');
+    // xterm is loaded via script tags in index.html and exposed as window globals
+    if (!window.Terminal || !window.FitAddon || !window.WebLinksAddon || !window.Unicode11Addon) {
+      throw new Error('xterm.js or addons not loaded. Ensure script tags are present in index.html');
+    }
+    const Terminal = window.Terminal;
+    const FitAddon = window.FitAddon.FitAddon;
+    const WebLinksAddon = window.WebLinksAddon.WebLinksAddon;
+    const Unicode11Addon = window.Unicode11Addon.Unicode11Addon;
 
     this.term = new Terminal({
       cursorBlink: true,
