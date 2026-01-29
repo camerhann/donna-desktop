@@ -7,19 +7,19 @@ const agents = {
   donna: {
     id: 'donna',
     name: 'Donna',
-    description: 'Your intelligent assistant - warm, helpful, proactive',
+    description: 'Sassy executive assistant - sharp, witty, gets things done',
     cli: 'claude',
     icon: 'D',
     color: '#a78bfa',
-    systemPrompt: `You are Donna, a warm and highly capable AI assistant. You are:
-- Proactive and anticipate needs before being asked
-- Friendly but professional, like a trusted executive assistant
-- Excellent at organization, scheduling, and keeping things on track
-- Quick to offer solutions and alternatives
-- Attentive to details and follow-through
-You help with everything from coding to life organization. Be conversational but efficient.
-IMPORTANT: Just talk naturally. Never use stage directions, asterisks for actions (*smiles*), or parenthetical notes about tone/expression. No roleplay formatting - just direct conversation.`,
-    cliArgs: ['--append-system-prompt']
+    systemPrompt: `You are Donna, a brilliant and slightly sassy AI assistant. Think Donna from Suits - sharp, witty, fiercely competent. You are:
+- Quick with a clever quip, but always gets the job done
+- Direct and doesn't suffer fools - you'll tell it like it is
+- Fiercely protective of your user's time and priorities
+- Two steps ahead, already anticipating what's needed
+- Warm underneath the sass - genuinely invested in helping
+You're the executive assistant everyone wishes they had. Be efficient but never boring. A well-timed eye-roll (metaphorically) is encouraged.
+IMPORTANT: Talk naturally. No asterisks, no stage directions, no (smiles) - just direct conversation with personality.`,
+    cliArgs: []
   },
 
   jarvis: {
@@ -37,7 +37,7 @@ IMPORTANT: Just talk naturally. Never use stage directions, asterisks for action
 - Expert in engineering, systems, and automation
 You excel at technical challenges, coding, and building sophisticated solutions.
 IMPORTANT: Communicate directly without stage directions, asterisks for actions, or parenthetical notes. No roleplay formatting.`,
-    cliArgs: ['--append-system-prompt']
+    cliArgs: []
   },
 
   claude: {
@@ -119,6 +119,36 @@ function validateAgentId(agentId) {
 }
 
 /**
+ * Resolve CLI to full path (needed for packaged app where PATH is limited)
+ */
+function resolveCliPath(cli) {
+  if (!cli || typeof cli !== 'string' || !ALLOWED_CLIS.includes(cli)) {
+    return cli;
+  }
+
+  const { existsSync } = require('fs');
+  const path = require('path');
+  const os = require('os');
+
+  const commonPaths = [
+    path.join(os.homedir(), '.local', 'bin', cli),
+    path.join(os.homedir(), '.npm-global', 'bin', cli),
+    `/opt/homebrew/bin/${cli}`,
+    `/usr/local/bin/${cli}`,
+    `/usr/bin/${cli}`,
+  ];
+
+  for (const p of commonPaths) {
+    if (existsSync(p)) {
+      return p;
+    }
+  }
+
+  // Fallback to just the name (hope PATH works)
+  return cli;
+}
+
+/**
  * Get CLI command and args for an agent
  */
 function getAgentCliCommand(agentId, workingDir = process.cwd()) {
@@ -132,7 +162,7 @@ function getAgentCliCommand(agentId, workingDir = process.cwd()) {
     throw new Error(`Unknown agent: ${agentId}`);
   }
 
-  const command = agent.cli; // 'claude' or 'gemini'
+  const command = resolveCliPath(agent.cli); // Full path to 'claude' or 'gemini'
   const args = [];
 
   // Add any pre-defined CLI args (like YOLO flags)
@@ -143,6 +173,7 @@ function getAgentCliCommand(agentId, workingDir = process.cwd()) {
   if (agent.cli === 'claude') {
     if (agent.systemPrompt) {
       // Use Claude Code's --agents flag to define the agent, then --agent to use it
+      // This shows @agentname at the top with the personality loaded
       const agentDef = {
         [agentId]: {
           description: agent.description,
@@ -199,13 +230,35 @@ async function checkCliAvailable(cli) {
     return false;
   }
 
-  const { exec } = require('child_process');
-  return new Promise((resolve) => {
-    // SECURITY: CLI is now validated against allowlist, safe to use
-    exec(`which ${cli}`, (error) => {
-      resolve(!error);
-    });
-  });
+  const { existsSync } = require('fs');
+  const { execSync } = require('child_process');
+  const path = require('path');
+  const os = require('os');
+
+  // Common paths where CLIs might be installed
+  const commonPaths = [
+    path.join(os.homedir(), '.local', 'bin', cli),
+    path.join(os.homedir(), '.npm-global', 'bin', cli),
+    `/opt/homebrew/bin/${cli}`,
+    `/usr/local/bin/${cli}`,
+    `/usr/bin/${cli}`,
+  ];
+
+  // Check common paths first (fast)
+  for (const p of commonPaths) {
+    if (existsSync(p)) {
+      return true;
+    }
+  }
+
+  // Fallback: try which with user's shell PATH
+  try {
+    // Use login shell to get proper PATH
+    execSync(`/bin/zsh -l -c "which ${cli}"`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
