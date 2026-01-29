@@ -52,10 +52,10 @@ class DonnaApp {
       this.sessionManager.createSession();
     });
 
-    // Bind settings button (V4)
+    // Bind settings button - opens terminal settings (V5)
     const settingsBtn = document.getElementById('settings-btn');
     settingsBtn?.addEventListener('click', () => {
-      this.modelSettings.open();
+      this.terminalSettings?.toggle();
     });
 
     // Handle window resize

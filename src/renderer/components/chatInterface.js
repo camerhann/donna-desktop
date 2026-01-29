@@ -14,6 +14,7 @@ class DonnaChat {
     this.messagesContainer = null;
     this.inputArea = null;
     this.currentStreamingMessage = null;
+    this.scrollDebounceTimer = null;
 
     this.init();
   }
@@ -590,29 +591,41 @@ class DonnaChat {
   }
 
   formatContent(content) {
-    // Basic markdown-like formatting
+    // Use marked for proper markdown rendering if available
+    if (window.marked) {
+      try {
+        // Configure marked for better code blocks
+        const html = window.marked.parse(content, {
+          gfm: true, // GitHub Flavored Markdown
+          breaks: true, // Convert \n to <br>
+          silent: true // Don't throw on errors
+        });
+        // Post-process to add copy buttons to code blocks
+        return this.addCodeBlockFeatures(html);
+      } catch (e) {
+        console.warn('Marked parsing failed, using fallback:', e);
+      }
+    }
+    // Fallback: Basic markdown-like formatting
     let html = content
-      // Escape HTML
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      // Code blocks
       .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-      // Inline code
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Bold
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      // Italic
       .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      // Line breaks
       .replace(/\n/g, '<br>');
-
-    // Wrap in paragraph if no block elements
-    if (!html.includes('<pre>') && !html.includes('<br>')) {
-      html = `<p>${html}</p>`;
-    }
-
     return html;
+  }
+
+  addCodeBlockFeatures(html) {
+    // Add copy buttons and language labels to code blocks
+    return html.replace(/<pre><code([^>]*)>/g, (match, attrs) => {
+      const langMatch = attrs.match(/class="language-(\w+)"/);
+      const lang = langMatch ? langMatch[1] : '';
+      return `<pre class="code-block"><div class="code-header"><span class="code-lang">${lang || 'text'}</span><button class="code-copy" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.textContent)">Copy</button></div><code${attrs}>`;
+    });
   }
 
   async sendMessage() {
@@ -690,7 +703,7 @@ class DonnaChat {
     const sendBtn = this.wrapper.querySelector(`#send-${this.sessionId}`);
     sendBtn.disabled = false;
 
-    this.scrollToBottom();
+    this.scrollToBottom(true); // Immediate scroll on complete
   }
 
   handleStreamError(error) {
@@ -715,8 +728,17 @@ class DonnaChat {
       .replace(/&amp;/g, '&');
   }
 
-  scrollToBottom() {
-    this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+  scrollToBottom(immediate = false) {
+    if (immediate) {
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+      return;
+    }
+    // Debounce scroll during streaming to reduce reflow lag
+    if (this.scrollDebounceTimer) return;
+    this.scrollDebounceTimer = requestAnimationFrame(() => {
+      this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+      this.scrollDebounceTimer = null;
+    });
   }
 
   async changeProvider(provider) {

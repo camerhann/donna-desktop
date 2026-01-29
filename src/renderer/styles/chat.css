@@ -150,6 +150,50 @@
   padding: 0;
 }
 
+/* Code block features (copy button, language label) */
+.message-content pre.code-block {
+  position: relative;
+  padding-top: calc(var(--spacing-lg) + var(--spacing-sm));
+}
+
+.code-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--donna-border);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.code-lang {
+  font-size: 11px;
+  color: var(--donna-text-muted);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.code-copy {
+  background: transparent;
+  border: 1px solid var(--donna-border);
+  border-radius: var(--radius-sm);
+  color: var(--donna-text-secondary);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.code-copy:hover {
+  background: var(--donna-accent);
+  border-color: var(--donna-accent);
+  color: white;
+}
+
 /* Streaming indicator */
 .message-streaming {
   display: inline-flex;
