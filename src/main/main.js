@@ -254,6 +254,38 @@ ipcMain.handle('terminal:deleteWorkflow', (event, { id }) => {
   return config.deleteWorkflow(id);
 });
 
+// AI Suggestions handler for terminal
+ipcMain.handle('terminal:getSuggestions', async (event, { input, history, cwd, provider }) => {
+  if (!modelManager) initializeOrchestrator();
+
+  try {
+    const context = `Current directory: ${cwd}
+Recent commands:
+${(history || []).slice(-5).join('\n')}
+
+Current input: ${input}`;
+
+    const prompt = `Suggest 3 shell commands that complete or improve: "${input}"
+Consider the context and provide commands that would be useful.
+Return ONLY a JSON array: [{"command": "...", "description": "..."}]`;
+
+    const response = await modelManager.chat([
+      { role: 'system', content: 'You are a shell command expert. Respond only with valid JSON.' },
+      { role: 'user', content: prompt }
+    ], { provider: provider || 'claude' });
+
+    try {
+      const suggestions = JSON.parse(response.content);
+      return { success: true, suggestions };
+    } catch {
+      return { success: true, suggestions: [] };
+    }
+  } catch (error) {
+    console.error('Failed to generate suggestions:', error);
+    return { success: false, suggestions: [], error: error.message };
+  }
+});
+
 // === Model Provider IPC Handlers ===
 
 ipcMain.handle('models:listProviders', () => {

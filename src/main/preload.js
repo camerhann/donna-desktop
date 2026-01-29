@@ -32,7 +32,10 @@ contextBridge.exposeInMainWorld('donnaTerminal', {
   getWorkflows: () => ipcRenderer.invoke('terminal:getWorkflows'),
   addWorkflow: (workflow) => ipcRenderer.invoke('terminal:addWorkflow', { workflow }),
   updateWorkflow: (id, updates) => ipcRenderer.invoke('terminal:updateWorkflow', { id, updates }),
-  deleteWorkflow: (id) => ipcRenderer.invoke('terminal:deleteWorkflow', { id })
+  deleteWorkflow: (id) => ipcRenderer.invoke('terminal:deleteWorkflow', { id }),
+
+  // AI Suggestions
+  getSuggestions: (params) => ipcRenderer.invoke('terminal:getSuggestions', params)
 });
 
 // Platform info
