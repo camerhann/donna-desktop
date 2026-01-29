@@ -4,7 +4,21 @@
  */
 
 const streamManager = require('./streamManager');
+const {
+  ClaudeOutputParser,
+  createClaudeParser,
+  ParserState,
+  ContentType,
+  ANSI_PATTERNS,
+  CLAUDE_PATTERNS
+} = require('./claudeOutputParser');
 
 module.exports = {
-  streamManager
+  streamManager,
+  ClaudeOutputParser,
+  createClaudeParser,
+  ParserState,
+  ContentType,
+  ANSI_PATTERNS,
+  CLAUDE_PATTERNS
 };

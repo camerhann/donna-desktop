@@ -14,6 +14,9 @@ class SessionManager {
     // Stream listeners for chat (V4)
     this.streamListeners = new Map();
     this.setupChatListeners();
+
+    // Feature flag for rich agent chat UI
+    this.enableAgentChatUI = true;
   }
 
   /**
@@ -166,6 +169,7 @@ class SessionManager {
   /**
    * Create an agent session (V5) - spawns CLI with personality
    * This is the PRIMARY way to create AI sessions (uses installed CLIs, not API)
+   * Now with rich AgentChat UI that wraps xterm
    */
   async createAgentSession(agent) {
     console.log('[SessionManager] createAgentSession called with agent:', agent);
@@ -182,7 +186,8 @@ class SessionManager {
       path: '~',
       createdAt: new Date(),
       terminal: null,
-      chat: null
+      chat: null,      // V4 API chat (not used for agents)
+      agentChat: null  // V5 AgentChat component
     };
 
     // Hide welcome screen
@@ -194,16 +199,28 @@ class SessionManager {
     // Mark container as having terminal
     this.terminalContainer?.classList.add('has-terminal');
 
+    // Prepare AgentChat if enabled
+    let agentChat = null;
+    if (this.enableAgentChatUI && window.AgentChat) {
+      agentChat = new window.AgentChat(id, this.terminalContainer, {
+        agent: agent,
+        ptyWrite: (data) => {
+          window.donnaTerminal.write(id, data);
+        }
+      });
+      agentChat.init();
+      session.agentChat = agentChat;
+    }
+
     // Create terminal instance with agent spawning
     try {
       const terminal = new DonnaTerminal(id, this.terminalContainer);
 
       // Override init to use agent CLI instead of default shell
-      const originalInit = terminal.init.bind(terminal);
       terminal.init = async () => {
-        // Create terminal wrapper (same as original)
+        // Create terminal wrapper
         terminal.wrapper = document.createElement('div');
-        terminal.wrapper.className = 'terminal-wrapper';
+        terminal.wrapper.className = 'terminal-wrapper agent-terminal-hidden';
         terminal.wrapper.id = `terminal-${terminal.sessionId}`;
         terminal.wrapper.innerHTML = `
           <div class="terminal-header">
@@ -226,7 +243,14 @@ class SessionManager {
           </div>
           <div class="terminal-body" id="body-${terminal.sessionId}"></div>
         `;
-        terminal.container.appendChild(terminal.wrapper);
+
+        // If AgentChat is active, mount terminal inside its terminal container
+        // Otherwise mount directly in main container
+        const mountPoint = agentChat
+          ? agentChat.terminalContainer
+          : terminal.container;
+
+        mountPoint.appendChild(terminal.wrapper);
 
         const terminalBody = terminal.wrapper.querySelector(`#body-${terminal.sessionId}`);
 
@@ -298,24 +322,31 @@ class SessionManager {
           throw new Error(`Failed to create agent session: ${result.error || 'unknown error'}`);
         }
 
-        // Handle data from PTY
-        terminal.cleanupDataListener = window.donnaTerminal.onData(({ id, data }) => {
-          if (id === terminal.sessionId && terminal.term) {
-            terminal.term.write(data);
-          }
-        });
-
-        // Handle PTY exit
-        terminal.cleanupExitListener = window.donnaTerminal.onExit(({ id, exitCode }) => {
-          if (id === terminal.sessionId) {
-            terminal.term.write(`\r\n\x1b[90m[${agent.name} exited with code ${exitCode}]\x1b[0m\r\n`);
-            if (window.sessionManager) {
-              window.sessionManager.handleSessionExit(id);
+        // Handle data from PTY - pipe through AgentChat if available
+        terminal.cleanupDataListener = window.donnaTerminal.onData(({ id: dataId, data }) => {
+          if (dataId === terminal.sessionId) {
+            // Always write to xterm (for terminal view)
+            if (terminal.term) {
+              terminal.term.write(data);
+            }
+            // Also send to AgentChat for parsing if available
+            if (agentChat) {
+              agentChat.handlePtyData(data);
             }
           }
         });
 
-        // Handle user input
+        // Handle PTY exit
+        terminal.cleanupExitListener = window.donnaTerminal.onExit(({ id: exitId, exitCode }) => {
+          if (exitId === terminal.sessionId) {
+            terminal.term.write(`\r\n\x1b[90m[${agent.name} exited with code ${exitCode}]\x1b[0m\r\n`);
+            if (window.sessionManager) {
+              window.sessionManager.handleSessionExit(exitId);
+            }
+          }
+        });
+
+        // Handle user input from terminal view
         terminal.onDataDisposable = terminal.term.onData((data) => {
           window.donnaTerminal.write(terminal.sessionId, data);
         });
@@ -332,6 +363,11 @@ class SessionManager {
         terminal.isReady = true;
         terminal.startPathUpdates();
 
+        // Link terminal to AgentChat for view toggle
+        if (agentChat) {
+          agentChat.setTerminal(terminal);
+        }
+
         return terminal;
       };
 
@@ -340,6 +376,12 @@ class SessionManager {
     } catch (error) {
       console.error('[SessionManager] Failed to initialize agent terminal:', error);
       console.error('[SessionManager] Error stack:', error.stack);
+
+      // Cleanup AgentChat on error
+      if (agentChat) {
+        agentChat.destroy();
+      }
+
       const welcomeScreen = document.getElementById('welcome-screen');
       if (welcomeScreen) {
         welcomeScreen.style.display = 'flex';
