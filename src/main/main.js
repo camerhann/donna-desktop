@@ -2,10 +2,14 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const os = require('os');
 const pty = require('node-pty');
+const { TerminalConfig } = require('./config/terminalConfig');
 
 // Store terminal sessions
 const terminals = new Map();
 let mainWindow = null;
+
+// Terminal configuration
+let terminalConfig = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -123,7 +127,70 @@ ipcMain.handle('terminal:getCwd', (event, { id }) => {
   return { success: false, error: 'Terminal not found' };
 });
 
-app.whenReady().then(createWindow);
+// === Terminal Config IPC Handlers ===
+
+// Initialize terminal config
+function initTerminalConfig() {
+  if (!terminalConfig) {
+    terminalConfig = new TerminalConfig();
+  }
+  return terminalConfig;
+}
+
+// Get terminal configuration
+ipcMain.handle('terminal:getConfig', () => {
+  const config = initTerminalConfig();
+  return config.getConfig();
+});
+
+// Check if feature is enabled
+ipcMain.handle('terminal:isFeatureEnabled', (event, { feature }) => {
+  const config = initTerminalConfig();
+  return config.isFeatureEnabled(feature);
+});
+
+// Set feature enabled/disabled
+ipcMain.handle('terminal:setFeatureEnabled', (event, { feature, enabled }) => {
+  const config = initTerminalConfig();
+  return config.setFeatureEnabled(feature, enabled);
+});
+
+// Update feature settings
+ipcMain.handle('terminal:updateFeatureSettings', (event, { feature, settings }) => {
+  const config = initTerminalConfig();
+  return config.updateFeatureSettings(feature, settings);
+});
+
+// Get all workflows
+ipcMain.handle('terminal:getWorkflows', () => {
+  const config = initTerminalConfig();
+  return config.getWorkflows();
+});
+
+// Add custom workflow
+ipcMain.handle('terminal:addWorkflow', (event, { workflow }) => {
+  const config = initTerminalConfig();
+  return config.addWorkflow(workflow);
+});
+
+// Update custom workflow
+ipcMain.handle('terminal:updateWorkflow', (event, { id, updates }) => {
+  const config = initTerminalConfig();
+  return config.updateWorkflow(id, updates);
+});
+
+// Delete custom workflow
+ipcMain.handle('terminal:deleteWorkflow', (event, { id }) => {
+  const config = initTerminalConfig();
+  return config.deleteWorkflow(id);
+});
+
+// === App Lifecycle ===
+
+app.whenReady().then(() => {
+  initTerminalConfig();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   // Clean up all terminals

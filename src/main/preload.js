@@ -20,7 +20,19 @@ contextBridge.exposeInMainWorld('donnaTerminal', {
     const handler = (event, data) => callback(data);
     ipcRenderer.on('terminal:exit', handler);
     return () => ipcRenderer.removeListener('terminal:exit', handler);
-  }
+  },
+
+  // Terminal configuration
+  getTerminalConfig: () => ipcRenderer.invoke('terminal:getConfig'),
+  isFeatureEnabled: (feature) => ipcRenderer.invoke('terminal:isFeatureEnabled', { feature }),
+  setFeatureEnabled: (feature, enabled) => ipcRenderer.invoke('terminal:setFeatureEnabled', { feature, enabled }),
+  updateFeatureSettings: (feature, settings) => ipcRenderer.invoke('terminal:updateFeatureSettings', { feature, settings }),
+
+  // Workflows
+  getWorkflows: () => ipcRenderer.invoke('terminal:getWorkflows'),
+  addWorkflow: (workflow) => ipcRenderer.invoke('terminal:addWorkflow', { workflow }),
+  updateWorkflow: (id, updates) => ipcRenderer.invoke('terminal:updateWorkflow', { id, updates }),
+  deleteWorkflow: (id) => ipcRenderer.invoke('terminal:deleteWorkflow', { id })
 });
 
 // Platform info
