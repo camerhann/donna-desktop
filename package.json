@@ -1,0 +1,39 @@
+{
+  "name": "donna-desktop",
+  "version": "0.1.0",
+  "description": "A beautiful Slack-style terminal app with the Donna aesthetic",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac"
+  },
+  "author": "Chris Ahern",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/addon-unicode11": "^0.8.0",
+    "@xterm/addon-web-links": "^0.11.0",
+    "@xterm/xterm": "^5.5.0",
+    "highlight.js": "^11.11.1",
+    "marked": "^17.0.1",
+    "node-pty": "^1.0.0"
+  },
+  "build": {
+    "appId": "com.donna.desktop",
+    "productName": "Donna Desktop",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "assets/icon.icns"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ]
+  }
+}

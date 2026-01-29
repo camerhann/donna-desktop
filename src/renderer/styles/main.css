@@ -1,0 +1,284 @@
+/* Donna Desktop - Main Styles */
+/* A beautiful, modern terminal experience */
+
+:root {
+  /* Donna Color Palette - Warm, inviting, professional */
+  --donna-bg-deep: #0f0f12;
+  --donna-bg-primary: #16161a;
+  --donna-bg-secondary: #1c1c21;
+  --donna-bg-elevated: #232329;
+  --donna-bg-hover: #2a2a32;
+  --donna-bg-active: #33333d;
+
+  /* Accent colors - Soft purple/violet tones */
+  --donna-accent: #a78bfa;
+  --donna-accent-dim: #8b5cf6;
+  --donna-accent-bright: #c4b5fd;
+  --donna-accent-glow: rgba(167, 139, 250, 0.15);
+
+  /* Text colors */
+  --donna-text-primary: #f4f4f5;
+  --donna-text-secondary: #a1a1aa;
+  --donna-text-muted: #71717a;
+  --donna-text-dim: #52525b;
+
+  /* Semantic colors */
+  --donna-success: #4ade80;
+  --donna-warning: #fbbf24;
+  --donna-error: #f87171;
+  --donna-info: #60a5fa;
+
+  /* Borders */
+  --donna-border: rgba(255, 255, 255, 0.06);
+  --donna-border-subtle: rgba(255, 255, 255, 0.03);
+
+  /* Shadows */
+  --donna-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --donna-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --donna-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* Transitions */
+  --transition-fast: 0.1s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  /* Sidebar dimensions */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+
+  /* Traffic light offset for macOS */
+  --titlebar-height: 52px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--donna-text-primary);
+  background: var(--donna-bg-deep);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  display: flex;
+  height: 100%;
+  width: 100%;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--donna-bg-hover);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--donna-bg-active);
+}
+
+/* Selection */
+::selection {
+  background: var(--donna-accent);
+  color: var(--donna-bg-deep);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--donna-accent);
+  outline-offset: 2px;
+}
+
+/* Button base */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Icon button */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--donna-text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.icon-btn:hover {
+  background: var(--donna-bg-hover);
+  color: var(--donna-text-primary);
+}
+
+.icon-btn:active {
+  background: var(--donna-bg-active);
+}
+
+/* Primary button */
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-xl);
+  background: var(--donna-accent);
+  color: var(--donna-bg-deep);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-normal);
+}
+
+.primary-btn:hover {
+  background: var(--donna-accent-bright);
+  box-shadow: 0 0 20px var(--donna-accent-glow);
+}
+
+.primary-btn:active {
+  transform: scale(0.98);
+}
+
+.primary-btn .shortcut {
+  font-size: 11px;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+/* Main content area */
+#main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--donna-bg-primary);
+}
+
+/* Welcome screen */
+.welcome-screen {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2xl);
+}
+
+.welcome-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.welcome-logo {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--donna-accent);
+  background: linear-gradient(135deg, var(--donna-accent-glow) 0%, transparent 100%);
+  border: 1px solid var(--donna-accent);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 40px var(--donna-accent-glow);
+}
+
+.welcome-content h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--donna-text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.welcome-content p {
+  color: var(--donna-text-secondary);
+  margin-bottom: var(--spacing-xl);
+}
+
+/* Terminal container */
+.terminal-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.terminal-container.has-terminal .welcome-screen {
+  display: none;
+}
+
+/* Terminal tabs (for future split view) */
+.terminal-tabs {
+  display: none;
+  height: 36px;
+  background: var(--donna-bg-secondary);
+  border-bottom: 1px solid var(--donna-border);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.fade-in {
+  animation: fadeIn var(--transition-normal);
+}
+
+.slide-in-left {
+  animation: slideInLeft var(--transition-normal);
+}

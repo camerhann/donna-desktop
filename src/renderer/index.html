@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <title>Donna Desktop</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/terminal.css">
+  <link rel="stylesheet" href="styles/sidebar.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar with session tabs -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="app-title">
+          <span class="donna-logo">D</span>
+          <span class="app-name">Donna</span>
+        </div>
+      </div>
+
+      <div class="sessions-section">
+        <div class="section-header">
+          <span class="section-title">Sessions</span>
+          <button id="new-session-btn" class="icon-btn" title="New Session (⌘T)">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div id="session-list" class="session-list">
+          <!-- Sessions will be added here dynamically -->
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="settings-btn" class="footer-btn" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.93 2.93l1.41 1.41M11.66 11.66l1.41 1.41M2.93 13.07l1.41-1.41M11.66 4.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main terminal area -->
+    <main id="main-content">
+      <div id="terminal-tabs" class="terminal-tabs">
+        <!-- Tab bar for multiple terminals in split view -->
+      </div>
+      <div id="terminal-container" class="terminal-container">
+        <!-- Terminal instances will be mounted here -->
+        <div class="welcome-screen" id="welcome-screen">
+          <div class="welcome-content">
+            <div class="welcome-logo">D</div>
+            <h1>Welcome to Donna Desktop</h1>
+            <p>Your beautiful, intuitive terminal experience</p>
+            <button id="start-session-btn" class="primary-btn">
+              Start New Session
+              <span class="shortcut">⌘T</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Load xterm CSS from node_modules -->
+  <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
+
+  <script src="utils/sessionManager.js"></script>
+  <script src="components/terminal.js"></script>
+  <script src="components/sidebar.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

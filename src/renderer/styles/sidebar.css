@@ -1,0 +1,239 @@
+/* Donna Desktop - Sidebar Styles */
+
+#sidebar {
+  width: var(--sidebar-width);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--donna-bg-deep);
+  border-right: 1px solid var(--donna-border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* Make interactive elements non-draggable */
+#sidebar button,
+#sidebar .session-item {
+  -webkit-app-region: no-drag;
+}
+
+/* Sidebar header - with space for traffic lights on macOS */
+.sidebar-header {
+  height: var(--titlebar-height);
+  padding: var(--spacing-lg);
+  padding-top: calc(var(--spacing-lg) + 8px);
+  display: flex;
+  align-items: center;
+}
+
+.app-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.donna-logo {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--donna-accent);
+  background: linear-gradient(135deg, var(--donna-accent-glow) 0%, transparent 100%);
+  border: 1px solid rgba(167, 139, 250, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+.app-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--donna-text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* Sessions section */
+.sessions-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 var(--spacing-sm);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--donna-text-muted);
+}
+
+/* Session list */
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: var(--spacing-md);
+}
+
+/* Session item */
+.session-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: 2px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.session-item:hover {
+  background: var(--donna-bg-hover);
+}
+
+.session-item.active {
+  background: var(--donna-bg-active);
+}
+
+.session-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  background: var(--donna-accent);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Session icon */
+.session-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--donna-text-muted);
+  flex-shrink: 0;
+}
+
+.session-item.active .session-icon {
+  color: var(--donna-accent);
+}
+
+/* Session info */
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--donna-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-path {
+  font-size: 11px;
+  color: var(--donna-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Session status indicator */
+.session-status {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--donna-success);
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.session-status.inactive {
+  background: var(--donna-text-dim);
+}
+
+/* Session close button */
+.session-close {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--donna-text-muted);
+  opacity: 0;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.session-item:hover .session-close {
+  opacity: 1;
+}
+
+.session-close:hover {
+  background: var(--donna-bg-elevated);
+  color: var(--donna-error);
+}
+
+/* Sidebar footer */
+.sidebar-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--donna-border);
+  display: flex;
+  justify-content: center;
+}
+
+.footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--donna-text-muted);
+  transition: all var(--transition-fast);
+}
+
+.footer-btn:hover {
+  background: var(--donna-bg-hover);
+  color: var(--donna-text-primary);
+}
+
+/* Empty state */
+.session-list-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--donna-text-muted);
+}
+
+.session-list-empty svg {
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.session-list-empty p {
+  font-size: 12px;
+}

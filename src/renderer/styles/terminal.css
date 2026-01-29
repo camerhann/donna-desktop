@@ -1,0 +1,245 @@
+/* Donna Desktop - Terminal Styles */
+
+/* Terminal wrapper */
+.terminal-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  flex-direction: column;
+  background: var(--donna-bg-primary);
+}
+
+.terminal-wrapper.active {
+  display: flex;
+}
+
+/* Terminal header */
+.terminal-header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-lg);
+  background: var(--donna-bg-secondary);
+  border-bottom: 1px solid var(--donna-border);
+  -webkit-app-region: drag;
+}
+
+.terminal-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  -webkit-app-region: no-drag;
+}
+
+.terminal-header-center {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.terminal-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  -webkit-app-region: no-drag;
+}
+
+/* Terminal title */
+.terminal-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--donna-text-secondary);
+}
+
+.terminal-path {
+  font-size: 11px;
+  color: var(--donna-text-muted);
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Terminal body - where xterm lives */
+.terminal-body {
+  flex: 1;
+  padding: var(--spacing-md);
+  overflow: hidden;
+  background: var(--donna-bg-primary);
+}
+
+/* xterm customization */
+.xterm {
+  height: 100%;
+  padding: var(--spacing-sm);
+}
+
+.xterm-viewport {
+  overflow-y: auto !important;
+}
+
+.xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+
+.xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--donna-bg-hover);
+  border-radius: 5px;
+  border: 2px solid var(--donna-bg-primary);
+}
+
+.xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: var(--donna-bg-active);
+}
+
+/* Terminal cursor styles */
+.xterm-cursor-layer {
+  z-index: 10;
+}
+
+/* Selection */
+.xterm .xterm-selection div {
+  background: rgba(167, 139, 250, 0.3) !important;
+}
+
+/* Links */
+.xterm-link-layer {
+  z-index: 5;
+}
+
+/* Terminal action buttons */
+.terminal-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--donna-text-muted);
+  transition: all var(--transition-fast);
+}
+
+.terminal-action-btn:hover {
+  background: var(--donna-bg-hover);
+  color: var(--donna-text-primary);
+}
+
+.terminal-action-btn:active {
+  background: var(--donna-bg-active);
+}
+
+/* Search bar (cmd+f) */
+.terminal-search {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  display: none;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--donna-bg-elevated);
+  border: 1px solid var(--donna-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--donna-shadow-lg);
+  z-index: 100;
+}
+
+.terminal-search.visible {
+  display: flex;
+}
+
+.terminal-search input {
+  width: 200px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--donna-bg-secondary);
+  border: 1px solid var(--donna-border);
+  border-radius: var(--radius-sm);
+  color: var(--donna-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.terminal-search input:focus {
+  outline: none;
+  border-color: var(--donna-accent);
+}
+
+.terminal-search input::placeholder {
+  color: var(--donna-text-muted);
+}
+
+/* Split view dividers (future) */
+.terminal-split-divider {
+  width: 4px;
+  background: var(--donna-bg-deep);
+  cursor: col-resize;
+  transition: background var(--transition-fast);
+}
+
+.terminal-split-divider:hover {
+  background: var(--donna-accent);
+}
+
+.terminal-split-divider-horizontal {
+  height: 4px;
+  width: 100%;
+  cursor: row-resize;
+}
+
+/* Terminal loading state */
+.terminal-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  color: var(--donna-text-muted);
+}
+
+.terminal-loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--donna-bg-active);
+  border-top-color: var(--donna-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Terminal error state */
+.terminal-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--donna-error);
+}
+
+.terminal-error svg {
+  margin-bottom: var(--spacing-md);
+}
+
+.terminal-error h3 {
+  font-size: 16px;
+  margin-bottom: var(--spacing-sm);
+}
+
+.terminal-error p {
+  font-size: 13px;
+  color: var(--donna-text-muted);
+}
