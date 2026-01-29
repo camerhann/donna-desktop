@@ -177,6 +177,23 @@ class InlineSuggestionRenderer {
   }
 
   /**
+   * Get the completion text (the part to be inserted on Tab)
+   * @param {string} currentInput - The current input text
+   * @returns {string|null} The remaining text to complete, or null if no suggestion
+   */
+  getCompletion(currentInput = '') {
+    if (!this.currentSuggestion) return null;
+
+    // If suggestion starts with current input, return only the remaining part
+    if (currentInput && this.currentSuggestion.toLowerCase().startsWith(currentInput.toLowerCase())) {
+      return this.currentSuggestion.slice(currentInput.length);
+    }
+
+    // Otherwise return the full suggestion (will replace current input)
+    return this.currentSuggestion;
+  }
+
+  /**
    * Check if suggestion is currently visible
    * @returns {boolean}
    */

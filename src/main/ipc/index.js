@@ -15,6 +15,7 @@ const { registerFilesHandlers } = require('./filesHandler');
 const { registerVoiceHandlers } = require('./voiceHandler');
 const { registerVaultHandlers } = require('./vaultHandler');
 const { registerContextHandlers } = require('./contextHandler');
+const { registerPreviewIpcHandlers } = require('./previewHandler');
 
 function registerAllHandlers(dependencies) {
   registerTerminalHandlers({
@@ -94,6 +95,9 @@ function registerAllHandlers(dependencies) {
 
   // Context sidebar handlers (open files, URLs)
   registerContextHandlers();
+
+  // Preview window handlers (Issue #8: Pop-out Preview Viewer)
+  registerPreviewIpcHandlers();
 }
 
 module.exports = { registerAllHandlers };

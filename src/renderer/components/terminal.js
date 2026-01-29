@@ -23,6 +23,20 @@ class DonnaTerminal {
     this.currentLine = '';
     this.maxHistorySize = 100;
 
+    // Auto-scroll tracking (Issue #2 fix)
+    this.isUserScrolledUp = false;
+    this.scrollDebounce = null;
+    this.scrollEventHandler = null;
+    this.scrollToBottomBtn = null;
+    this.scrollBtnHandler = null;
+
+    // Input detection for visual feedback (Issue #1)
+    this.inputDetector = null;
+    this.inputRequired = false;
+
+    // Inline suggestion renderer for ghost text (Issue #6)
+    this.inlineSuggestion = null;
+
     // Note: init() must be called explicitly and awaited by the caller
     // to avoid race conditions. Don't auto-call here.
   }
@@ -132,6 +146,9 @@ class DonnaTerminal {
     this.term.open(terminalBody);
     this.fitAddon.fit();
 
+    // Auto-scroll tracking: detect when user scrolls up (Issue #2 fix)
+    this.setupScrollTracking(terminalBody);
+
     // Create the PTY process with error handling
     const { cols, rows } = this.term;
     const createResult = await window.donnaTerminal.create(this.sessionId, cols, rows);
@@ -159,10 +176,23 @@ class DonnaTerminal {
       throw new Error(createResult?.error || 'Failed to create PTY process');
     }
 
+    // Initialize input detector for visual feedback (Issue #1)
+    if (window.InputDetector) {
+      this.inputDetector = new window.InputDetector();
+    }
+
     // Handle data from PTY
     this.cleanupDataListener = window.donnaTerminal.onData(({ id, data }) => {
       if (id === this.sessionId && this.term) {
         this.term.write(data);
+        // Auto-scroll to bottom if user hasn't scrolled up (Issue #2 fix)
+        this.scrollToBottomIfNeeded();
+        // Detect input prompts for visual feedback (Issue #1)
+        if (this.inputDetector) {
+          this.inputDetector.processData(data, (inputRequired) => {
+            this.setInputRequired(inputRequired);
+          });
+        }
       }
     });
 
@@ -179,6 +209,32 @@ class DonnaTerminal {
 
     // Handle user input - store disposable for cleanup and track history
     this.onDataDisposable = this.term.onData((data) => {
+      // Check for Tab key to accept inline suggestion (Issue #6)
+      if (data === '\t' && this.inlineSuggestion?.isShowing()) {
+        // Accept the inline suggestion
+        const completion = this.inlineSuggestion.getCompletion(this.currentLine);
+        if (completion) {
+          // Write the completion to PTY
+          window.donnaTerminal.write(this.sessionId, completion);
+          // Update current line tracker
+          this.currentLine += completion;
+          // Hide the inline suggestion
+          this.inlineSuggestion.hide();
+          // Also hide AI suggestions dropdown if visible
+          if (this.aiSuggestions) {
+            this.aiSuggestions.hide();
+          }
+          return; // Don't send Tab to PTY
+        }
+      }
+
+      // Clear input required indicator when user types (Issue #1)
+      if (this.inputDetector) {
+        this.inputDetector.clearInputRequired((inputRequired) => {
+          this.setInputRequired(inputRequired);
+        });
+      }
+
       // Track command history for AI suggestions
       if (data === '\r' || data === '\n') {
         // Enter pressed - save command to history
@@ -191,6 +247,10 @@ class DonnaTerminal {
           window.terminalHistory = this.commandHistory;
         }
         this.currentLine = '';
+        // Hide inline suggestion on Enter (Issue #6)
+        if (this.inlineSuggestion) {
+          this.inlineSuggestion.hide();
+        }
       } else if (data === '\x7f') {
         // Backspace
         this.currentLine = this.currentLine.slice(0, -1);
@@ -218,6 +278,19 @@ class DonnaTerminal {
 
     // Initialize power features (V5)
     await this.initPowerFeatures();
+
+    // Listen for accepted AI suggestions (Issue #9 fix)
+    // When user accepts a suggestion, write the remaining command to terminal
+    this.suggestionAcceptedHandler = (e) => {
+      const { command, original } = e.detail;
+      // Calculate what needs to be written (command minus what's already typed)
+      const remainingCommand = original && command.startsWith(original)
+        ? command.slice(original.length)
+        : command;
+      // Write to PTY via IPC
+      window.donnaTerminal.write(this.sessionId, remainingCommand);
+    };
+    window.addEventListener('suggestionAccepted', this.suggestionAcceptedHandler);
 
     return this;
   }
@@ -261,6 +334,79 @@ class DonnaTerminal {
   }
 
   /**
+   * Setup scroll tracking to detect user scroll-up and show "scroll to bottom" button
+   * Issue #2 fix: Auto-scroll bug
+   */
+  setupScrollTracking(terminalBody) {
+    // Find the xterm viewport element (contains the scrollbar)
+    const viewport = this.term.element?.querySelector('.xterm-viewport');
+    if (!viewport) {
+      console.warn('Could not find xterm viewport for scroll tracking');
+      return;
+    }
+
+    // Create "scroll to bottom" button
+    this.scrollToBottomBtn = document.createElement('button');
+    this.scrollToBottomBtn.className = 'scroll-to-bottom-btn';
+    this.scrollToBottomBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M8 3v10M4 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    `;
+    this.scrollToBottomBtn.title = 'Scroll to bottom';
+    terminalBody.appendChild(this.scrollToBottomBtn);
+
+    // Button click handler
+    this.scrollBtnHandler = () => {
+      this.isUserScrolledUp = false;
+      this.term.scrollToBottom();
+      this.updateScrollButtonVisibility();
+    };
+    this.scrollToBottomBtn.addEventListener('click', this.scrollBtnHandler);
+
+    // Scroll event handler to detect if user has scrolled up
+    this.scrollEventHandler = () => {
+      const isAtBottom = viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight - 10;
+      this.isUserScrolledUp = !isAtBottom;
+      this.updateScrollButtonVisibility();
+    };
+    viewport.addEventListener('scroll', this.scrollEventHandler);
+
+    // Store viewport reference for cleanup
+    this._viewport = viewport;
+  }
+
+  /**
+   * Update visibility of the "scroll to bottom" button
+   */
+  updateScrollButtonVisibility() {
+    if (this.scrollToBottomBtn) {
+      if (this.isUserScrolledUp) {
+        this.scrollToBottomBtn.classList.add('visible');
+      } else {
+        this.scrollToBottomBtn.classList.remove('visible');
+      }
+    }
+  }
+
+  /**
+   * Scroll to bottom if user hasn't manually scrolled up
+   * Uses requestAnimationFrame for debouncing
+   * Issue #2 fix: Auto-scroll bug
+   */
+  scrollToBottomIfNeeded() {
+    if (this.isUserScrolledUp) return;
+    if (this.scrollDebounce) return;
+
+    this.scrollDebounce = requestAnimationFrame(() => {
+      if (this.term && !this.isUserScrolledUp) {
+        this.term.scrollToBottom();
+      }
+      this.scrollDebounce = null;
+    });
+  }
+
+  /**
    * Initialize terminal power features (V5)
    */
   async initPowerFeatures() {
@@ -268,23 +414,35 @@ class DonnaTerminal {
       const config = await window.donnaTerminal?.getTerminalConfig?.();
       if (!config) return;
 
+      const termBody = this.wrapper.querySelector('.terminal-body');
+
       // Command Blocks - visual grouping of commands
       if (config.features?.commandBlocks !== false && window.CommandBlockManager) {
         this.commandBlocks = new window.CommandBlockManager(this, config.commandBlocks || {});
         // Attach container to terminal wrapper
-        const termBody = this.wrapper.querySelector('.terminal-body');
         if (termBody && this.commandBlocks.blocksContainer) {
           termBody.style.position = 'relative';
           termBody.appendChild(this.commandBlocks.blocksContainer);
         }
       }
 
+      // Inline Suggestions - ghost text at cursor (Issue #6)
+      if (config.features?.aiSuggestions !== false && window.InlineSuggestionRenderer) {
+        this.inlineSuggestion = new window.InlineSuggestionRenderer(this, config.inlineSuggestions || {});
+        if (termBody) {
+          this.inlineSuggestion.attach(termBody);
+        }
+      }
+
       // AI Suggestions - intelligent command completion
       if (config.features?.aiSuggestions !== false && window.AISuggestionManager) {
         this.aiSuggestions = new window.AISuggestionManager(this, config.aiSuggestions || {});
-        const termBody = this.wrapper.querySelector('.terminal-body');
         if (termBody) {
           this.aiSuggestions.attach(termBody);
+        }
+        // Connect inline renderer to AI suggestion manager (Issue #6)
+        if (this.inlineSuggestion) {
+          this.aiSuggestions.setInlineRenderer(this.inlineSuggestion);
         }
       }
     } catch (error) {
@@ -357,6 +515,20 @@ class DonnaTerminal {
   }
 
   /**
+   * Set input required state and update sidebar indicator (Issue #1)
+   * @param {boolean} required - Whether terminal is waiting for input
+   */
+  setInputRequired(required) {
+    if (this.inputRequired === required) return;
+    this.inputRequired = required;
+
+    // Update sidebar indicator
+    if (window.sessionManager?.sidebar) {
+      window.sessionManager.sidebar.setInputRequired(this.sessionId, required);
+    }
+  }
+
+  /**
    * Destroy terminal and clean up
    */
   async destroy() {
@@ -397,12 +569,57 @@ class DonnaTerminal {
       this.clearBtnHandler = null;
     }
 
+    // Remove suggestion accepted event listener (Issue #9 fix)
+    if (this.suggestionAcceptedHandler) {
+      window.removeEventListener('suggestionAccepted', this.suggestionAcceptedHandler);
+      this.suggestionAcceptedHandler = null;
+    }
+
+    // Clean up scroll tracking (Issue #2 fix)
+    if (this.scrollDebounce) {
+      cancelAnimationFrame(this.scrollDebounce);
+      this.scrollDebounce = null;
+    }
+    if (this._viewport && this.scrollEventHandler) {
+      this._viewport.removeEventListener('scroll', this.scrollEventHandler);
+      this.scrollEventHandler = null;
+      this._viewport = null;
+    }
+    if (this.scrollToBottomBtn) {
+      if (this.scrollBtnHandler) {
+        this.scrollToBottomBtn.removeEventListener('click', this.scrollBtnHandler);
+        this.scrollBtnHandler = null;
+      }
+      if (this.scrollToBottomBtn.parentNode) {
+        this.scrollToBottomBtn.parentNode.removeChild(this.scrollToBottomBtn);
+      }
+      this.scrollToBottomBtn = null;
+    }
+
+    // Clean up input detector (Issue #1)
+    if (this.inputDetector) {
+      this.inputDetector.destroy();
+      this.inputDetector = null;
+    }
+    // Clear input required indicator in sidebar
+    if (window.sessionManager?.sidebar) {
+      window.sessionManager.sidebar.setInputRequired(this.sessionId, false);
+    }
+    this.inputRequired = false;
+
     // Clean up power features (V5)
     if (this.commandBlocks) {
       if (typeof this.commandBlocks.destroy === 'function') {
         this.commandBlocks.destroy();
       }
       this.commandBlocks = null;
+    }
+    // Clean up inline suggestion renderer (Issue #6)
+    if (this.inlineSuggestion) {
+      if (typeof this.inlineSuggestion.destroy === 'function') {
+        this.inlineSuggestion.destroy();
+      }
+      this.inlineSuggestion = null;
     }
     if (this.aiSuggestions) {
       if (typeof this.aiSuggestions.destroy === 'function') {

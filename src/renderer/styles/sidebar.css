@@ -297,6 +297,41 @@
   color: var(--donna-error);
 }
 
+/* Input Required Indicator - pulsing animation */
+@keyframes inputRequiredPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
+  }
+}
+
+@keyframes inputRequiredGlow {
+  0%, 100% {
+    border-color: rgba(251, 191, 36, 0.3);
+  }
+  50% {
+    border-color: rgba(251, 191, 36, 0.6);
+  }
+}
+
+.session-item.input-required {
+  animation: inputRequiredPulse 2s ease-in-out infinite;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  animation: inputRequiredPulse 2s ease-in-out infinite,
+             inputRequiredGlow 2s ease-in-out infinite;
+}
+
+.session-item.input-required .session-status {
+  background: var(--donna-warning, #fbbf24);
+  animation: inputRequiredGlow 1s ease-in-out infinite;
+}
+
+.session-item.input-required::before {
+  background: var(--donna-warning, #fbbf24);
+}
+
 /* Sidebar footer */
 .sidebar-footer {
   padding: var(--spacing-md);

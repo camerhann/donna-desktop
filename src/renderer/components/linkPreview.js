@@ -90,17 +90,29 @@ class LinkPreviewRenderer {
 
   /**
    * Render fallback for failed preview
+   * Uses LinkClassifier for context-aware icons when available
    */
   renderFallback(element, url, error) {
     element.classList.remove('loading');
     element.classList.add('fallback');
+
+    // Use LinkClassifier for smart icon if available, otherwise fallback to generic
+    const icon = window.LinkClassifier
+      ? window.LinkClassifier.getIconForUrl(url)
+      : `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1l6 6-6 6-6-6 6-6z" stroke="currentColor" stroke-width="1.5"/>
+        </svg>`;
+
+    // Use LinkClassifier for better display name if available
+    const displayName = window.LinkClassifier
+      ? window.LinkClassifier.extractDisplayName(url)
+      : this.getDomain(url);
+
     element.innerHTML = `
       <div class="link-preview-content">
         <div class="link-preview-site">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 1l6 6-6 6-6-6 6-6z" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-          <span>${this.escapeHtml(this.getDomain(url))}</span>
+          ${icon}
+          <span>${this.escapeHtml(displayName)}</span>
         </div>
         <div class="link-preview-title">
           <a href="${this.escapeHtml(url)}" target="_blank" rel="noopener noreferrer">

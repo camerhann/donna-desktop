@@ -276,3 +276,17 @@ contextBridge.exposeInMainWorld('donnaVault', {
     return () => ipcRenderer.removeListener('vault:fileChanged', handler);
   }
 });
+
+// Preview API (Issue #8: Pop-out Preview Viewer)
+contextBridge.exposeInMainWorld('donnaPreview', {
+  // Open a file in a preview window
+  open: (filePath) => ipcRenderer.invoke('preview:open', filePath),
+  // Create a preview window with custom options
+  create: (options) => ipcRenderer.invoke('preview:create', options),
+  // Close a specific preview window
+  close: (windowId) => ipcRenderer.invoke('preview:close', windowId),
+  // Close all preview windows
+  closeAll: () => ipcRenderer.invoke('preview:closeAll'),
+  // Get the number of open preview windows
+  count: () => ipcRenderer.invoke('preview:count')
+});

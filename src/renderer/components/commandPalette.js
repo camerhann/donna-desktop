@@ -20,6 +20,7 @@ class CommandPalette {
     this.selectedIndex = 0;
     this.recentCommands = this.loadRecentCommands();
     this.workflows = [];
+    this.mode = 'default'; // 'default' or 'history'
 
     this.element = null;
     this.inputElement = null;
@@ -64,11 +65,19 @@ class CommandPalette {
     this.inputElement.addEventListener('input', (e) => this.handleInput(e.target.value));
     this.inputElement.addEventListener('keydown', (e) => this.handleKeydown(e));
 
-    // Global shortcut
+    // Global shortcut for command palette (Cmd+Shift+P)
     document.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'p') {
         e.preventDefault();
         this.toggle();
+      }
+    });
+
+    // Ctrl+R for history search (classic shell behavior)
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'r') {
+        e.preventDefault();
+        this.openHistorySearch();
       }
     });
   }
@@ -112,12 +121,38 @@ class CommandPalette {
     this.isOpen = true;
     this.query = '';
     this.selectedIndex = 0;
+    this.mode = 'default';
     this.element.style.display = 'flex';
     this.inputElement.value = '';
+    this.inputElement.placeholder = 'Type a command or search...';
     this.inputElement.focus();
 
     // Show default results (recent + workflows)
     this.showDefaultResults();
+
+    // Animate in
+    requestAnimationFrame(() => {
+      this.element.classList.add('open');
+    });
+  }
+
+  /**
+   * Open the palette in history search mode (Ctrl+R)
+   */
+  openHistorySearch() {
+    if (!this.enabled) return;
+
+    this.isOpen = true;
+    this.query = '';
+    this.selectedIndex = 0;
+    this.mode = 'history';
+    this.element.style.display = 'flex';
+    this.inputElement.value = '';
+    this.inputElement.placeholder = 'Search command history (Ctrl+R)...';
+    this.inputElement.focus();
+
+    // Show history results
+    this.showHistoryResults();
 
     // Animate in
     requestAnimationFrame(() => {
@@ -143,6 +178,11 @@ class CommandPalette {
   handleInput(value) {
     this.query = value;
     this.selectedIndex = 0;
+
+    if (this.mode === 'history') {
+      this.showHistoryResults(value);
+      return;
+    }
 
     if (!value.trim()) {
       this.showDefaultResults();
@@ -248,6 +288,98 @@ class CommandPalette {
   }
 
   /**
+   * Show history search results (Ctrl+R mode)
+   * Uses terminal history from window.terminalHistory
+   */
+  showHistoryResults(query = '') {
+    const results = [];
+
+    // Get terminal history (populated by terminal.js)
+    const terminalHistory = window.terminalHistory || [];
+    // Also include palette's recent commands as fallback
+    const allHistory = [...new Set([...terminalHistory, ...this.recentCommands])];
+
+    if (allHistory.length === 0) {
+      results.push({ type: 'header', label: 'No Command History' });
+      results.push({
+        type: 'info',
+        label: 'Run some commands to build history',
+        icon: 'terminal'
+      });
+    } else {
+      const lower = query.toLowerCase();
+
+      // Filter by query if provided
+      const matchingHistory = query.trim()
+        ? allHistory.filter(cmd => this.fuzzyMatch(cmd.toLowerCase(), lower))
+        : allHistory;
+
+      if (matchingHistory.length > 0) {
+        results.push({ type: 'header', label: 'Command History' });
+
+        // Show up to 20 matching commands
+        matchingHistory.slice(0, 20).forEach(cmd => {
+          results.push({
+            type: 'command',
+            command: cmd,
+            label: query.trim() ? this.highlightFuzzyMatch(cmd, query) : cmd,
+            icon: 'history'
+          });
+        });
+      } else {
+        results.push({ type: 'header', label: 'No Matches' });
+        results.push({
+          type: 'info',
+          label: `No commands matching "${query}"`,
+          icon: 'terminal'
+        });
+      }
+    }
+
+    this.results = results;
+    this.renderResults();
+  }
+
+  /**
+   * Fuzzy match for history search
+   * Returns true if all characters in query appear in text in order
+   */
+  fuzzyMatch(text, query) {
+    let textIndex = 0;
+    let queryIndex = 0;
+
+    while (textIndex < text.length && queryIndex < query.length) {
+      if (text[textIndex] === query[queryIndex]) {
+        queryIndex++;
+      }
+      textIndex++;
+    }
+
+    return queryIndex === query.length;
+  }
+
+  /**
+   * Highlight fuzzy matched characters
+   */
+  highlightFuzzyMatch(text, query) {
+    const lower = text.toLowerCase();
+    const queryLower = query.toLowerCase();
+    let result = '';
+    let queryIndex = 0;
+
+    for (let i = 0; i < text.length; i++) {
+      if (queryIndex < queryLower.length && lower[i] === queryLower[queryIndex]) {
+        result += `<mark>${this.escapeHtml(text[i])}</mark>`;
+        queryIndex++;
+      } else {
+        result += this.escapeHtml(text[i]);
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Search commands and workflows
    */
   search(query) {
@@ -318,13 +450,25 @@ class CommandPalette {
     this.results.forEach((result, i) => {
       if (result.type === 'header') {
         html += `<div class="palette-section-header">${result.label}</div>`;
+      } else if (result.type === 'info') {
+        // Non-interactive info item (e.g., empty state)
+        html += `
+          <div class="palette-item palette-info-item">
+            <div class="palette-item-icon">${this.getIcon(result.icon)}</div>
+            <div class="palette-item-content">
+              <div class="palette-item-label">${this.escapeHtml(result.label)}</div>
+            </div>
+          </div>
+        `;
       } else {
         const isSelected = itemIndex === this.selectedIndex;
+        // If label contains HTML (from highlight functions), use it directly; otherwise escape
+        const labelHtml = result.label.includes('<mark>') ? result.label : this.escapeHtml(result.label);
         html += `
           <div class="palette-item ${isSelected ? 'selected' : ''}" data-index="${itemIndex}" data-result-index="${i}">
             <div class="palette-item-icon">${this.getIcon(result.icon)}</div>
             <div class="palette-item-content">
-              <div class="palette-item-label">${typeof result.label === 'string' ? this.escapeHtml(result.label) : result.label}</div>
+              <div class="palette-item-label">${labelHtml}</div>
               ${result.description ? `<div class="palette-item-desc">${this.escapeHtml(result.description)}</div>` : ''}
             </div>
             ${result.shortcut ? `<div class="palette-item-shortcut">${result.shortcut}</div>` : ''}
@@ -337,7 +481,7 @@ class CommandPalette {
     this.resultsElement.innerHTML = html;
 
     // Add click handlers
-    this.resultsElement.querySelectorAll('.palette-item').forEach(el => {
+    this.resultsElement.querySelectorAll('.palette-item:not(.palette-info-item)').forEach(el => {
       el.addEventListener('click', () => {
         this.selectedIndex = parseInt(el.dataset.index);
         this.executeSelected();
@@ -366,7 +510,7 @@ class CommandPalette {
    * Select next item
    */
   selectNext() {
-    const selectableCount = this.results.filter(r => r.type !== 'header').length;
+    const selectableCount = this.results.filter(r => r.type !== 'header' && r.type !== 'info').length;
     if (selectableCount === 0) return;
 
     this.selectedIndex = (this.selectedIndex + 1) % selectableCount;
@@ -377,7 +521,7 @@ class CommandPalette {
    * Select previous item
    */
   selectPrevious() {
-    const selectableCount = this.results.filter(r => r.type !== 'header').length;
+    const selectableCount = this.results.filter(r => r.type !== 'header' && r.type !== 'info').length;
     if (selectableCount === 0) return;
 
     this.selectedIndex = (this.selectedIndex - 1 + selectableCount) % selectableCount;
@@ -512,7 +656,8 @@ class CommandPalette {
       settings: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.93 2.93l1.41 1.41M11.66 11.66l1.41 1.41M2.93 13.07l1.41-1.41M11.66 4.34l1.41-1.41" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
       play: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 3l9 5-9 5V3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
       package: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4v8l6 3 6-3V4L8 1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M2 4l6 3 6-3M8 7v8" stroke="currentColor" stroke-width="1.5"/></svg>',
-      docker: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="6" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M4 6V4M8 6V3M12 6V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'
+      docker: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="6" width="14" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M4 6V4M8 6V3M12 6V4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+      history: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 4v4l3 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     };
     return icons[type] || icons.terminal;
   }

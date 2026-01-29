@@ -2,6 +2,8 @@
  * Donna Desktop - Context Sidebar
  * Displays files, links, and directories extracted from terminal output
  * Supports unified (all sessions) and per-session views
+ *
+ * Depends on: LinkClassifier (src/renderer/utils/linkClassifier.js)
  */
 
 class ContextStore {
@@ -13,19 +15,34 @@ class ContextStore {
 
   /**
    * Add an item to the store
+   * If an item with the same value and type already exists, it will be replaced
+   * with an updated timestamp and incremented version count
    */
   add(item) {
-    // Check for duplicates (same path/url in same session)
-    const exists = this.items.some(
-      i => i.value === item.value && i.sessionId === item.sessionId
+    // Check for existing item with same path/url and type
+    const existingIndex = this.items.findIndex(
+      i => i.value === item.value && i.type === item.type
     );
-    if (exists) return;
 
-    this.items.unshift({
-      ...item,
-      id: `ctx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now()
-    });
+    if (existingIndex !== -1) {
+      // Replace existing item: remove old one and add updated version at top
+      const existing = this.items[existingIndex];
+      this.items.splice(existingIndex, 1);
+      this.items.unshift({
+        ...item,
+        id: existing.id, // Preserve original ID
+        timestamp: Date.now(),
+        versionCount: (existing.versionCount || 1) + 1
+      });
+    } else {
+      // Add new item
+      this.items.unshift({
+        ...item,
+        id: `ctx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Date.now(),
+        versionCount: 1
+      });
+    }
 
     // Trim old items
     if (this.items.length > this.maxItems) {
@@ -171,16 +188,21 @@ class ContextParser {
       }
     }
 
-    // Extract URLs
+    // Extract URLs with smart classification
     this.patterns.url.lastIndex = 0;
     while ((match = this.patterns.url.exec(cleanText)) !== null) {
       const url = match[0].replace(/[.,;:!?)]+$/, ''); // Trim trailing punctuation
       if (!seen.has(url)) {
         seen.add(url);
+        // Use LinkClassifier if available for smart display names and link types
+        const linkInfo = window.LinkClassifier
+          ? window.LinkClassifier.getFullInfo(url)
+          : { type: 'generic', displayName: this.getUrlDisplayName(url) };
         items.push({
           type: 'link',
           value: url,
-          displayName: this.getUrlDisplayName(url),
+          displayName: linkInfo.displayName,
+          linkType: linkInfo.type, // Store classified link type for icon rendering
           sessionId,
           sessionName
         });
@@ -336,13 +358,56 @@ class ContextSidebar {
   }
 
   /**
+   * Check if a file extension supports preview
+   */
+  isPreviewable(filePath) {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    const previewableExts = [
+      // Markdown
+      'md', 'markdown', 'mdx',
+      // Code
+      'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'go', 'rs', 'java',
+      'c', 'cpp', 'h', 'hpp', 'cs', 'swift', 'kt', 'scala', 'php',
+      'sh', 'bash', 'zsh', 'fish', 'ps1',
+      'css', 'scss', 'less', 'sass', 'html', 'xml', 'vue', 'svelte',
+      'sql', 'graphql', 'gql', 'prisma',
+      // Data
+      'json', 'yaml', 'yml', 'toml', 'ini', 'env', 'conf', 'cfg',
+      // Text
+      'txt', 'log',
+      // Images
+      'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'
+    ];
+    return previewableExts.includes(ext);
+  }
+
+  /**
    * Open a file or link
+   * Files open in preview window if previewable, otherwise open externally
+   * Links always open in external browser
+   * Directories open in Finder/Explorer
    */
   async openItem(type, value) {
     try {
       if (type === 'link') {
+        // Links always open in external browser
         await window.donnaContext?.openExternal(value);
-      } else if (type === 'file' || type === 'directory') {
+      } else if (type === 'file') {
+        // Check if file can be previewed
+        if (this.isPreviewable(value) && window.donnaPreview) {
+          // Open in preview window
+          const result = await window.donnaPreview.open(value);
+          if (!result?.success) {
+            // Fallback to external open if preview fails
+            console.warn('Preview failed, falling back to external open:', result?.error);
+            await window.donnaContext?.openPath(value);
+          }
+        } else {
+          // Open externally for non-previewable files
+          await window.donnaContext?.openPath(value);
+        }
+      } else if (type === 'directory') {
+        // Directories always open in Finder/Explorer
         await window.donnaContext?.openPath(value);
       }
     } catch (error) {
@@ -382,7 +447,8 @@ class ContextSidebar {
   renderGroup(title, type, items) {
     if (!items.length) return '';
 
-    const icons = {
+    // Default icons for group headers (files and directories use static icons)
+    const headerIcons = {
       file: `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
         <path d="M3 1h5l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/>
         <path d="M8 1v4h4" stroke="currentColor" stroke-width="1.5"/>
@@ -399,20 +465,48 @@ class ContextSidebar {
     return `
       <div class="context-group">
         <div class="context-group-header">
-          ${icons[type]}
+          ${headerIcons[type]}
           <span>${title}</span>
           <span class="context-count">${items.length}</span>
         </div>
         <div class="context-group-items">
           ${items.map(item => `
             <div class="context-item" data-type="${type}" data-value="${this.escapeAttr(item.value)}" title="${this.escapeAttr(item.value)}">
+              ${this.renderItemIcon(item, type)}
               <span class="context-item-name">${this.escapeHtml(item.displayName)}</span>
+              ${item.versionCount > 1 ? `<span class="context-item-version" title="Updated ${item.versionCount} times">v${item.versionCount}</span>` : ''}
               ${this.viewMode === 'unified' ? `<span class="context-item-session">${this.escapeHtml(item.sessionName)}</span>` : ''}
             </div>
           `).join('')}
         </div>
       </div>
     `;
+  }
+
+  /**
+   * Render context-aware icon for an item
+   * Links use classified icons (GitHub, Google Drive, etc.)
+   * Files and directories use default icons
+   */
+  renderItemIcon(item, type) {
+    // For links, use LinkClassifier to get context-aware icons
+    if (type === 'link' && window.LinkClassifier) {
+      const linkType = item.linkType || window.LinkClassifier.classify(item.value);
+      return `<span class="context-item-icon">${window.LinkClassifier.getIcon(linkType)}</span>`;
+    }
+
+    // Default icons for files and directories
+    const defaultIcons = {
+      file: `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M3 1h5l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M8 1v4h4" stroke="currentColor" stroke-width="1.3"/>
+      </svg>`,
+      directory: `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <path d="M2 3h4l1 1h5a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.3"/>
+      </svg>`
+    };
+
+    return `<span class="context-item-icon">${defaultIcons[type] || ''}</span>`;
   }
 
   escapeHtml(text) {
@@ -587,6 +681,19 @@ class ContextSidebar {
         background: var(--donna-bg-active, #3f3f46);
       }
 
+      .context-item-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-right: 8px;
+        opacity: 0.85;
+      }
+
+      .context-item-icon svg {
+        display: block;
+      }
+
       .context-item-name {
         color: var(--donna-text-primary, #e4e4e7);
         white-space: nowrap;
@@ -604,6 +711,17 @@ class ContextSidebar {
         border-radius: 4px;
         margin-left: 8px;
         flex-shrink: 0;
+      }
+
+      .context-item-version {
+        font-size: 9px;
+        color: var(--donna-accent, #8b5cf6);
+        background: rgba(139, 92, 246, 0.15);
+        padding: 2px 5px;
+        border-radius: 4px;
+        margin-left: 6px;
+        flex-shrink: 0;
+        font-weight: 600;
       }
 
       /* Scrollbar */

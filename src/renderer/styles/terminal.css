@@ -262,3 +262,50 @@
   font-size: 13px;
   color: var(--donna-text-muted);
 }
+
+/* Scroll to bottom button (Issue #2 fix) */
+.scroll-to-bottom-btn {
+  position: absolute;
+  bottom: var(--spacing-lg);
+  right: var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--donna-bg-elevated);
+  border: 1px solid var(--donna-border);
+  color: var(--donna-text-secondary);
+  box-shadow: var(--donna-shadow-md);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all var(--transition-normal);
+  z-index: 50;
+}
+
+.scroll-to-bottom-btn.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.scroll-to-bottom-btn:hover {
+  background: var(--donna-bg-hover);
+  color: var(--donna-accent);
+  border-color: var(--donna-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--donna-shadow-lg);
+}
+
+.scroll-to-bottom-btn:active {
+  transform: translateY(0);
+  box-shadow: var(--donna-shadow-sm);
+}
+
+.scroll-to-bottom-btn svg {
+  width: 16px;
+  height: 16px;
+}
