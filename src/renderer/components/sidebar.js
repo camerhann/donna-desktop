@@ -287,6 +287,25 @@ class DonnaSidebar {
   }
 
   /**
+   * Set input required indicator for a session
+   * Shows pulsing animation when terminal is waiting for user input
+   * @param {string} sessionId - The session ID
+   * @param {boolean} required - Whether input is required
+   */
+  setInputRequired(sessionId, required) {
+    const sessionEl = this.sessionList.querySelector(`[data-session-id="${sessionId}"]`);
+    if (sessionEl) {
+      sessionEl.classList.toggle('input-required', required);
+      // Update aria-label for accessibility
+      if (required) {
+        sessionEl.setAttribute('aria-label', 'Input required - terminal waiting');
+      } else {
+        sessionEl.removeAttribute('aria-label');
+      }
+    }
+  }
+
+  /**
    * Rename a session (double-click to edit)
    */
   enableRename(sessionId) {

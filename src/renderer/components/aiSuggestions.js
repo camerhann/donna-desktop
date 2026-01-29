@@ -23,6 +23,9 @@ class AISuggestionManager {
     this.suggestionElement = null;
     this.isVisible = false;
 
+    // Inline suggestion renderer reference (set via setInlineRenderer)
+    this.inlineRenderer = null;
+
     // Common command patterns for quick suggestions
     this.quickPatterns = [
       { pattern: /^git\s*$/, suggestions: ['git status', 'git add .', 'git commit -m ""', 'git push', 'git pull'] },
@@ -86,6 +89,14 @@ class AISuggestionManager {
   detach() {
     this.suggestionElement?.remove();
     document.removeEventListener('keydown', this.handleKeydown, true);
+  }
+
+  /**
+   * Set the inline suggestion renderer for ghost text display
+   * @param {InlineSuggestionRenderer} renderer
+   */
+  setInlineRenderer(renderer) {
+    this.inlineRenderer = renderer;
   }
 
   /**
@@ -214,6 +225,11 @@ class AISuggestionManager {
     this.selectedIndex = 0;
     this.isVisible = true;
 
+    // Update inline ghost text with top suggestion
+    if (this.inlineRenderer && suggestions.length > 0) {
+      this.inlineRenderer.show(suggestions[0].command, this.currentInput);
+    }
+
     this.suggestionElement.innerHTML = `
       <div class="suggestions-header">
         <span class="suggestions-title">Suggestions</span>
@@ -270,6 +286,10 @@ class AISuggestionManager {
     if (this.suggestionElement) {
       this.suggestionElement.style.display = 'none';
     }
+    // Also hide inline ghost text
+    if (this.inlineRenderer) {
+      this.inlineRenderer.hide();
+    }
   }
 
   /**
@@ -299,6 +319,11 @@ class AISuggestionManager {
     this.suggestionElement.querySelectorAll('.suggestion-item').forEach((el, i) => {
       el.classList.toggle('selected', i === this.selectedIndex);
     });
+
+    // Update inline ghost text to show currently selected suggestion
+    if (this.inlineRenderer && this.selectedIndex >= 0 && this.suggestions[this.selectedIndex]) {
+      this.inlineRenderer.show(this.suggestions[this.selectedIndex].command, this.currentInput);
+    }
   }
 
   /**

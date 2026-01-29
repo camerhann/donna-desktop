@@ -94,6 +94,10 @@ class AgentInputBar {
           <kbd>Enter</kbd> to send, <kbd>Shift+Enter</kbd> for newline, <kbd>Esc</kbd> to clear
         </span>
       </div>
+      <div class="agent-input-history-preview" style="display: none;">
+        <span class="history-preview-label"></span>
+        <span class="history-preview-text"></span>
+      </div>
     `;
 
     this.container.appendChild(this.wrapper);
@@ -105,6 +109,9 @@ class AgentInputBar {
     this.voiceButton = this.wrapper.querySelector('.agent-voice-btn');
     this.attachmentsContainer = this.wrapper.querySelector('.agent-input-attachments');
     this.voicePreview = this.wrapper.querySelector('.agent-input-voice-preview');
+    this.historyPreview = this.wrapper.querySelector('.agent-input-history-preview');
+    this.historyPreviewLabel = this.wrapper.querySelector('.history-preview-label');
+    this.historyPreviewText = this.wrapper.querySelector('.history-preview-text');
   }
 
   /**
@@ -181,12 +188,36 @@ class AgentInputBar {
     this.autoExpand();
     this.updateSendButton();
     this.historyIndex = -1; // Reset history navigation on new input
+    this.hideHistoryPreview(); // Hide preview when typing
   }
 
   /**
    * Handle textarea keydown events
    */
   handleKeydown(e) {
+    // Bracket/quote auto-close
+    const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
+    if (pairs[e.key]) {
+      e.preventDefault();
+      const start = this.textarea.selectionStart;
+      const end = this.textarea.selectionEnd;
+      const before = this.textarea.value.slice(0, start);
+      const selected = this.textarea.value.slice(start, end);
+      const after = this.textarea.value.slice(end);
+      // Wrap selected text or insert empty pair
+      this.textarea.value = before + e.key + selected + pairs[e.key] + after;
+      if (selected.length > 0) {
+        // Keep selection inside brackets
+        this.textarea.selectionStart = start + 1;
+        this.textarea.selectionEnd = end + 1;
+      } else {
+        // Position cursor between brackets
+        this.textarea.selectionStart = this.textarea.selectionEnd = start + 1;
+      }
+      this.handleInput();
+      return;
+    }
+
     // Enter to send (without Shift)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -198,6 +229,7 @@ class AgentInputBar {
     if (e.key === 'Escape') {
       e.preventDefault();
       this.clear();
+      this.hideHistoryPreview();
       return;
     }
 
@@ -340,10 +372,12 @@ class AgentInputBar {
     if (this.historyIndex === -1) {
       // Back to current input
       this.textarea.value = this.currentInput;
+      this.hideHistoryPreview();
     } else {
       // Show history item (newest first)
       const historyItem = this.commandHistory[this.commandHistory.length - 1 - this.historyIndex];
       this.textarea.value = historyItem || '';
+      this.showHistoryPreview(this.historyIndex + 1, this.commandHistory.length, historyItem);
     }
 
     this.autoExpand();
@@ -352,6 +386,32 @@ class AgentInputBar {
     // Move cursor to end
     this.textarea.selectionStart = this.textarea.value.length;
     this.textarea.selectionEnd = this.textarea.value.length;
+  }
+
+  /**
+   * Show history preview tooltip
+   */
+  showHistoryPreview(current, total, text) {
+    if (!this.historyPreview) return;
+    this.historyPreviewLabel.textContent = `History (${current}/${total}):`;
+    // Truncate long text for preview
+    const maxLen = 60;
+    const truncated = text.length > maxLen ? text.slice(0, maxLen) + '...' : text;
+    this.historyPreviewText.textContent = truncated;
+    this.historyPreview.style.display = 'flex';
+
+    // Auto-hide after a few seconds of inactivity
+    clearTimeout(this._historyPreviewTimeout);
+    this._historyPreviewTimeout = setTimeout(() => this.hideHistoryPreview(), 3000);
+  }
+
+  /**
+   * Hide history preview tooltip
+   */
+  hideHistoryPreview() {
+    if (!this.historyPreview) return;
+    this.historyPreview.style.display = 'none';
+    clearTimeout(this._historyPreviewTimeout);
   }
 
   /**
@@ -516,6 +576,7 @@ class AgentInputBar {
         background: var(--donna-bg-secondary, #1c1c21);
         border-top: 1px solid var(--donna-border, rgba(255, 255, 255, 0.06));
         padding: 12px 16px;
+        position: relative;
       }
 
       .agent-input-bar.disabled {
@@ -727,6 +788,44 @@ class AgentInputBar {
       .agent-input-attachments .file-attachment-card {
         background: var(--donna-bg-elevated, #232329);
         border-color: var(--donna-border, rgba(255, 255, 255, 0.06));
+      }
+
+      /* History preview tooltip */
+      .agent-input-history-preview {
+        position: absolute;
+        bottom: 100%;
+        left: 16px;
+        right: 16px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--donna-bg-elevated, #232329);
+        border: 1px solid var(--donna-border, rgba(255, 255, 255, 0.06));
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        z-index: 10;
+        animation: historyPreviewFadeIn 0.15s ease;
+      }
+
+      @keyframes historyPreviewFadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .history-preview-label {
+        color: var(--donna-accent, #a78bfa);
+        font-weight: 500;
+        flex-shrink: 0;
+      }
+
+      .history-preview-text {
+        color: var(--donna-text-secondary, #a1a1aa);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     `;
     document.head.appendChild(styles);
