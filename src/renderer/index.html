@@ -54,6 +54,13 @@
       </div>
 
       <div class="sidebar-footer">
+        <button id="help-btn" class="footer-btn" title="Help & Shortcuts (^?)">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M6 6a2 2 0 112 2v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="8" cy="12" r="0.75" fill="currentColor"/>
+          </svg>
+        </button>
         <button id="settings-btn" class="footer-btn" title="Settings">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.5"/>
@@ -115,6 +122,7 @@
   <!-- Core components -->
   <script src="utils/inputDetector.js"></script>
   <script src="utils/sessionManager.js"></script>
+  <script src="utils/textInputShortcuts.js"></script>
   <script src="components/terminal.js"></script>
   <script src="components/chatInterface.js"></script>
   <script src="components/sidebar.js"></script>
@@ -130,6 +138,8 @@
   <script src="components/commandPalette.js"></script>
   <script src="components/workflowManager.js"></script>
   <script src="components/terminalSettings.js"></script>
+  <script src="components/themeManager.js"></script>
+  <script src="components/helpPanel.js"></script>
 
   <!-- Agent system -->
   <script src="components/agentPicker.js"></script>

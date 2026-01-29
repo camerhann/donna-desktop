@@ -28,6 +28,24 @@ class TerminalSettings {
           </button>
         </div>
         <div class="settings-content">
+          <!-- Appearance Section -->
+          <div class="settings-section">
+            <h3 class="section-title">Appearance</h3>
+            <p class="section-desc">Customize how Donna looks</p>
+
+            <div class="setting-item">
+              <div class="setting-info">
+                <label class="setting-label">Theme</label>
+                <p class="setting-desc">Choose your preferred color scheme</p>
+              </div>
+              <select id="appearance-theme" class="setting-select">
+                <option value="system">System</option>
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+            </div>
+          </div>
+
           <!-- Features Section -->
           <div class="settings-section">
             <h3 class="section-title">Features</h3>
@@ -206,6 +224,13 @@ class TerminalSettings {
       });
     });
 
+    // Appearance settings
+    this.element.querySelectorAll('[id^="appearance-"]').forEach(input => {
+      input.addEventListener('change', (e) => {
+        this.updateAppearanceSettings();
+      });
+    });
+
     // Add workflow button
     this.element.querySelector('#btn-add-workflow').addEventListener('click', () => {
       window.workflowManager?.showEditor();
@@ -286,6 +311,9 @@ class TerminalSettings {
         aiSuggestions: true,
         commandPalette: true
       },
+      appearance: {
+        theme: 'system'
+      },
       commandBlocks: {
         showTimestamps: true,
         showDuration: true,
@@ -309,6 +337,9 @@ class TerminalSettings {
    * Populate settings form with current values
    */
   populateSettings() {
+    // Appearance
+    document.getElementById('appearance-theme').value = this.config.appearance?.theme || 'system';
+
     // Features
     document.getElementById('feature-commandBlocks').checked = this.config.features.commandBlocks;
     document.getElementById('feature-aiSuggestions').checked = this.config.features.aiSuggestions;
@@ -380,10 +411,10 @@ class TerminalSettings {
       </div>
     `).join('');
 
-    // Add event listeners
+    // Add event listeners - use btn instead of e.target to handle clicks on child SVG elements
     list.querySelectorAll('.workflow-edit').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.workflow-item').dataset.id;
+      btn.addEventListener('click', () => {
+        const id = btn.closest('.workflow-item').dataset.id;
         const workflow = workflows.find(w => w.id === id);
         if (workflow) {
           window.workflowManager?.showEditor(workflow);
@@ -392,11 +423,9 @@ class TerminalSettings {
     });
 
     list.querySelectorAll('.workflow-delete').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.workflow-item').dataset.id;
-        if (confirm('Delete this workflow?')) {
-          this.deleteWorkflow(id);
-        }
+      btn.addEventListener('click', () => {
+        const id = btn.closest('.workflow-item').dataset.id;
+        this.confirmDeleteWorkflow(id);
       });
     });
   }
@@ -405,8 +434,27 @@ class TerminalSettings {
    * Update a feature toggle
    */
   async updateFeature(feature, enabled) {
+    const previousValue = this.config.features[feature];
     this.config.features[feature] = enabled;
-    await window.donnaTerminal?.setFeatureEnabled?.(feature, enabled);
+
+    try {
+      const result = await window.donnaTerminal?.setFeatureEnabled?.(feature, enabled);
+      if (!result?.success) {
+        // Revert on failure
+        this.config.features[feature] = previousValue;
+        const toggle = document.getElementById(`feature-${feature}`);
+        if (toggle) toggle.checked = previousValue;
+        console.error(`Failed to update feature: ${feature}`, result?.error);
+        return;
+      }
+    } catch (error) {
+      // Revert on error
+      this.config.features[feature] = previousValue;
+      const toggle = document.getElementById(`feature-${feature}`);
+      if (toggle) toggle.checked = previousValue;
+      console.error(`Error updating feature ${feature}:`, error);
+      return;
+    }
 
     this.updateSectionVisibility();
 
@@ -420,6 +468,7 @@ class TerminalSettings {
    * Update command block settings
    */
   async updateBlockSettings() {
+    const previousSettings = { ...this.config.commandBlocks };
     const settings = {
       showTimestamps: document.getElementById('blocks-showTimestamps').checked,
       showDuration: document.getElementById('blocks-showDuration').checked,
@@ -428,7 +477,23 @@ class TerminalSettings {
     };
 
     this.config.commandBlocks = settings;
-    await window.donnaTerminal?.updateFeatureSettings?.('commandBlocks', settings);
+
+    try {
+      const result = await window.donnaTerminal?.updateFeatureSettings?.('commandBlocks', settings);
+      if (!result?.success) {
+        // Revert on failure
+        this.config.commandBlocks = previousSettings;
+        this.populateBlockSettingsUI(previousSettings);
+        console.error('Failed to update command block settings:', result?.error);
+        return;
+      }
+    } catch (error) {
+      // Revert on error
+      this.config.commandBlocks = previousSettings;
+      this.populateBlockSettingsUI(previousSettings);
+      console.error('Error updating command block settings:', error);
+      return;
+    }
 
     window.dispatchEvent(new CustomEvent('settingsUpdated', {
       detail: { feature: 'commandBlocks', settings }
@@ -436,9 +501,20 @@ class TerminalSettings {
   }
 
   /**
+   * Helper to populate block settings UI
+   */
+  populateBlockSettingsUI(settings) {
+    document.getElementById('blocks-showTimestamps').checked = settings.showTimestamps;
+    document.getElementById('blocks-showDuration').checked = settings.showDuration;
+    document.getElementById('blocks-collapseLongOutput').checked = settings.collapseLongOutput;
+    document.getElementById('blocks-collapseThreshold').value = settings.collapseThreshold;
+  }
+
+  /**
    * Update AI suggestion settings
    */
   async updateAISettings() {
+    const previousSettings = { ...this.config.aiSuggestions };
     const settings = {
       provider: document.getElementById('ai-provider').value,
       triggerDelay: parseInt(document.getElementById('ai-triggerDelay').value) || 500,
@@ -447,7 +523,23 @@ class TerminalSettings {
     };
 
     this.config.aiSuggestions = settings;
-    await window.donnaTerminal?.updateFeatureSettings?.('aiSuggestions', settings);
+
+    try {
+      const result = await window.donnaTerminal?.updateFeatureSettings?.('aiSuggestions', settings);
+      if (!result?.success) {
+        // Revert on failure
+        this.config.aiSuggestions = previousSettings;
+        this.populateAISettingsUI(previousSettings);
+        console.error('Failed to update AI settings:', result?.error);
+        return;
+      }
+    } catch (error) {
+      // Revert on error
+      this.config.aiSuggestions = previousSettings;
+      this.populateAISettingsUI(previousSettings);
+      console.error('Error updating AI settings:', error);
+      return;
+    }
 
     window.dispatchEvent(new CustomEvent('settingsUpdated', {
       detail: { feature: 'aiSuggestions', settings }
@@ -455,10 +547,120 @@ class TerminalSettings {
   }
 
   /**
+   * Helper to populate AI settings UI
+   */
+  populateAISettingsUI(settings) {
+    document.getElementById('ai-provider').value = settings.provider;
+    document.getElementById('ai-triggerDelay').value = settings.triggerDelay;
+    document.getElementById('ai-showInline').checked = settings.showInline;
+    document.getElementById('ai-maxSuggestions').value = settings.maxSuggestions;
+  }
+
+  /**
+   * Update appearance settings (theme)
+   */
+  async updateAppearanceSettings() {
+    const theme = document.getElementById('appearance-theme').value;
+    const previousTheme = this.config.appearance?.theme || 'system';
+
+    // Update local config
+    if (!this.config.appearance) {
+      this.config.appearance = {};
+    }
+    this.config.appearance.theme = theme;
+
+    // Apply theme immediately via ThemeManager
+    if (window.themeManager) {
+      await window.themeManager.setTheme(theme);
+    }
+
+    // Persist to config
+    try {
+      const result = await window.donnaTerminal?.updateFeatureSettings?.('appearance', { theme });
+      if (!result?.success) {
+        // Revert on failure
+        this.config.appearance.theme = previousTheme;
+        document.getElementById('appearance-theme').value = previousTheme;
+        if (window.themeManager) {
+          await window.themeManager.setTheme(previousTheme);
+        }
+        console.error('Failed to save appearance settings:', result?.error);
+        return;
+      }
+    } catch (error) {
+      // Revert on error
+      this.config.appearance.theme = previousTheme;
+      document.getElementById('appearance-theme').value = previousTheme;
+      if (window.themeManager) {
+        await window.themeManager.setTheme(previousTheme);
+      }
+      console.error('Error saving appearance settings:', error);
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('settingsUpdated', {
+      detail: { feature: 'appearance', settings: { theme } }
+    }));
+  }
+
+  /**
+   * Confirm and delete a workflow with custom dialog
+   */
+  confirmDeleteWorkflow(id) {
+    // Create confirmation dialog
+    const dialog = document.createElement('div');
+    dialog.className = 'confirm-dialog-backdrop';
+    dialog.innerHTML = `
+      <div class="confirm-dialog">
+        <div class="confirm-dialog-content">
+          <p>Delete this workflow?</p>
+          <p class="confirm-dialog-subtitle">This action cannot be undone.</p>
+        </div>
+        <div class="confirm-dialog-actions">
+          <button class="confirm-dialog-cancel">Cancel</button>
+          <button class="confirm-dialog-confirm">Delete</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(dialog);
+
+    // Handle cancel
+    dialog.querySelector('.confirm-dialog-cancel').addEventListener('click', () => {
+      dialog.remove();
+    });
+
+    // Handle backdrop click
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) {
+        dialog.remove();
+      }
+    });
+
+    // Handle confirm
+    dialog.querySelector('.confirm-dialog-confirm').addEventListener('click', () => {
+      dialog.remove();
+      this.deleteWorkflow(id);
+    });
+
+    // Focus cancel button for accessibility
+    dialog.querySelector('.confirm-dialog-cancel').focus();
+  }
+
+  /**
    * Delete a workflow
    */
   async deleteWorkflow(id) {
-    await window.donnaTerminal?.deleteWorkflow?.(id);
+    try {
+      const result = await window.donnaTerminal?.deleteWorkflow?.(id);
+      if (!result?.success) {
+        console.error('Failed to delete workflow:', result?.error);
+        return;
+      }
+    } catch (error) {
+      console.error('Error deleting workflow:', error);
+      return;
+    }
 
     // Reload config
     await this.loadConfig();

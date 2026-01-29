@@ -29,6 +29,11 @@ class TerminalConfig {
       // Always-on features (not configurable)
       // - workflows (saved command sequences)
 
+      // Appearance settings (Issue #14: Light/dark mode)
+      appearance: {
+        theme: 'system',            // 'system', 'light', or 'dark'
+      },
+
       // Command blocks settings
       commandBlocks: {
         showTimestamps: true,
@@ -120,6 +125,7 @@ class TerminalConfig {
 
   /**
    * Save configuration to disk
+   * @returns {{ success: boolean, error?: string }}
    */
   saveConfig() {
     try {
@@ -127,8 +133,10 @@ class TerminalConfig {
         fs.mkdirSync(this.configDir, { recursive: true });
       }
       fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2));
+      return { success: true };
     } catch (error) {
       console.error('Failed to save terminal config:', error);
+      return { success: false, error: error.message };
     }
   }
 
@@ -163,26 +171,39 @@ class TerminalConfig {
 
   /**
    * Toggle a feature on/off
+   * @returns {{ success: boolean, error?: string }}
    */
   setFeatureEnabled(feature, enabled) {
-    if (feature in this.config.features) {
-      this.config.features[feature] = enabled;
-      this.saveConfig();
-      return true;
+    if (!(feature in this.config.features)) {
+      return { success: false, error: `Unknown feature: ${feature}` };
     }
-    return false;
+    this.config.features[feature] = enabled;
+    const saveResult = this.saveConfig();
+    if (!saveResult.success) {
+      // Revert the change if save failed
+      this.config.features[feature] = !enabled;
+      return saveResult;
+    }
+    return { success: true };
   }
 
   /**
    * Update feature-specific settings
+   * @returns {{ success: boolean, error?: string }}
    */
   updateFeatureSettings(feature, settings) {
-    if (feature in this.config) {
-      this.config[feature] = { ...this.config[feature], ...settings };
-      this.saveConfig();
-      return true;
+    if (!(feature in this.config)) {
+      return { success: false, error: `Unknown feature: ${feature}` };
     }
-    return false;
+    const previousSettings = { ...this.config[feature] };
+    this.config[feature] = { ...this.config[feature], ...settings };
+    const saveResult = this.saveConfig();
+    if (!saveResult.success) {
+      // Revert the change if save failed
+      this.config[feature] = previousSettings;
+      return saveResult;
+    }
+    return { success: true };
   }
 
   /**
@@ -197,6 +218,7 @@ class TerminalConfig {
 
   /**
    * Add a custom workflow
+   * @returns {{ success: boolean, workflow?: object, error?: string }}
    */
   addWorkflow(workflow) {
     const id = `custom-${Date.now()}`;
@@ -206,37 +228,55 @@ class TerminalConfig {
       isCustom: true
     };
     this.config.workflows.custom.push(newWorkflow);
-    this.saveConfig();
-    return newWorkflow;
+    const saveResult = this.saveConfig();
+    if (!saveResult.success) {
+      // Revert the change if save failed
+      this.config.workflows.custom.pop();
+      return { success: false, error: saveResult.error };
+    }
+    return { success: true, workflow: newWorkflow };
   }
 
   /**
    * Update a custom workflow
+   * @returns {{ success: boolean, error?: string }}
    */
   updateWorkflow(id, updates) {
     const index = this.config.workflows.custom.findIndex(w => w.id === id);
-    if (index !== -1) {
-      this.config.workflows.custom[index] = {
-        ...this.config.workflows.custom[index],
-        ...updates
-      };
-      this.saveConfig();
-      return true;
+    if (index === -1) {
+      return { success: false, error: `Workflow not found: ${id}` };
     }
-    return false;
+    const previousWorkflow = { ...this.config.workflows.custom[index] };
+    this.config.workflows.custom[index] = {
+      ...this.config.workflows.custom[index],
+      ...updates
+    };
+    const saveResult = this.saveConfig();
+    if (!saveResult.success) {
+      // Revert the change if save failed
+      this.config.workflows.custom[index] = previousWorkflow;
+      return saveResult;
+    }
+    return { success: true };
   }
 
   /**
    * Delete a custom workflow
+   * @returns {{ success: boolean, error?: string }}
    */
   deleteWorkflow(id) {
     const index = this.config.workflows.custom.findIndex(w => w.id === id);
-    if (index !== -1) {
-      this.config.workflows.custom.splice(index, 1);
-      this.saveConfig();
-      return true;
+    if (index === -1) {
+      return { success: false, error: `Workflow not found: ${id}` };
     }
-    return false;
+    const deletedWorkflow = this.config.workflows.custom.splice(index, 1)[0];
+    const saveResult = this.saveConfig();
+    if (!saveResult.success) {
+      // Revert the change if save failed
+      this.config.workflows.custom.splice(index, 0, deletedWorkflow);
+      return saveResult;
+    }
+    return { success: true };
   }
 }
 

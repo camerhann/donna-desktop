@@ -99,11 +99,14 @@ class DonnaSidebar {
     sessionEl.dataset.sessionType = session.type || 'terminal';
 
     // Determine subtitle based on session type
-    let subtitle = session.path || '~';
-    if (session.type === 'agent' && session.agentInfo) {
-      subtitle = session.agentInfo.cli || 'claude';
-    } else if (session.type === 'chat') {
-      subtitle = session.provider || 'Claude';
+    // Custom subname takes priority over default values
+    let subtitle = session.subname || session.path || '~';
+    if (!session.subname) {
+      if (session.type === 'agent' && session.agentInfo) {
+        subtitle = session.agentInfo.cli || 'claude';
+      } else if (session.type === 'chat') {
+        subtitle = session.provider || 'Claude';
+      }
     }
 
     sessionEl.innerHTML = `
@@ -143,9 +146,17 @@ class DonnaSidebar {
       }
     });
 
-    // Double-click to rename
+    // Double-click to rename (on name) or edit subname (on subtitle)
     sessionEl.addEventListener('dblclick', (e) => {
       if (e.target.closest('.session-close')) return;
+      if (e.target.closest('.session-pin')) return;
+
+      // If double-clicking on the subtitle (.session-path), edit subname
+      if (e.target.closest('.session-path')) {
+        this.enableSubnameEdit(session.id);
+        return;
+      }
+      // Otherwise edit the session name
       this.enableRename(session.id);
     });
 
@@ -264,7 +275,7 @@ class DonnaSidebar {
   }
 
   /**
-   * Update session info (name, path, provider)
+   * Update session info (name, path, provider, subname)
    */
   updateSession(sessionId, updates) {
     const sessionEl = this.sessionList.querySelector(`[data-session-id="${sessionId}"]`);
@@ -273,7 +284,11 @@ class DonnaSidebar {
         const nameEl = sessionEl.querySelector('.session-name');
         if (nameEl) nameEl.textContent = updates.name;
       }
-      if (updates.path || updates.provider) {
+      // subname takes priority over path/provider for display
+      if (updates.subname !== undefined) {
+        const pathEl = sessionEl.querySelector('.session-path');
+        if (pathEl) pathEl.textContent = updates.subname || updates.path || updates.provider || '~';
+      } else if (updates.path || updates.provider) {
         const pathEl = sessionEl.querySelector('.session-path');
         if (pathEl) pathEl.textContent = updates.path || updates.provider;
       }
@@ -350,6 +365,80 @@ class DonnaSidebar {
         input.blur();
       } else if (e.key === 'Escape') {
         input.value = currentName;
+        input.blur();
+      }
+    });
+  }
+
+  /**
+   * Enable editing of the subname (subtitle) via double-click
+   * Allows users to set a custom subtitle that overrides the CLI name
+   */
+  enableSubnameEdit(sessionId) {
+    const sessionEl = this.sessionList.querySelector(`[data-session-id="${sessionId}"]`);
+    if (!sessionEl) return;
+
+    const pathEl = sessionEl.querySelector('.session-path');
+    if (!pathEl) return;
+
+    const currentSubname = pathEl.textContent;
+
+    // Get the session to determine the default value (CLI name or path)
+    const session = window.sessionManager?.sessions.get(sessionId);
+    let defaultValue = '~';
+    if (session) {
+      if (session.type === 'agent' && session.agentInfo) {
+        defaultValue = session.agentInfo.cli || 'claude';
+      } else if (session.type === 'chat') {
+        defaultValue = session.provider || 'Claude';
+      } else {
+        defaultValue = session.path || '~';
+      }
+    }
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentSubname;
+    input.placeholder = defaultValue;
+    input.className = 'session-subname-input';
+    input.style.cssText = `
+      width: 100%;
+      background: var(--donna-bg-secondary, #27272a);
+      border: 1px solid var(--donna-accent, #a78bfa);
+      border-radius: 4px;
+      padding: 1px 4px;
+      color: var(--donna-text-secondary, #a1a1aa);
+      font-size: 11px;
+      outline: none;
+    `;
+
+    pathEl.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const save = () => {
+      const newSubname = input.value.trim();
+      const newPathEl = document.createElement('div');
+      newPathEl.className = 'session-path';
+
+      // If empty or matches default, clear the subname and show default
+      if (!newSubname || newSubname === defaultValue) {
+        newPathEl.textContent = defaultValue;
+        window.sessionManager?.setSubname(sessionId, null);
+      } else {
+        newPathEl.textContent = newSubname;
+        window.sessionManager?.setSubname(sessionId, newSubname);
+      }
+
+      input.replaceWith(newPathEl);
+    };
+
+    input.addEventListener('blur', save);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        input.blur();
+      } else if (e.key === 'Escape') {
+        input.value = currentSubname;
         input.blur();
       }
     });

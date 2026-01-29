@@ -252,6 +252,28 @@
 }
 
 /* Pinned session styling */
+.session-item.pinned {
+  background: linear-gradient(135deg,
+    rgba(167, 139, 250, 0.08) 0%,
+    transparent 100%
+  );
+  border-left: 2px solid rgba(167, 139, 250, 0.4);
+}
+
+.session-item.pinned:hover {
+  background: linear-gradient(135deg,
+    rgba(167, 139, 250, 0.12) 0%,
+    var(--donna-bg-hover) 100%
+  );
+}
+
+.session-item.pinned.active {
+  background: linear-gradient(135deg,
+    rgba(167, 139, 250, 0.15) 0%,
+    var(--donna-bg-active) 100%
+  );
+}
+
 .session-item.pinned .session-pin {
   opacity: 1;
   color: var(--donna-accent);

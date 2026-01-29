@@ -979,3 +979,377 @@
   background: var(--donna-accent, #a78bfa);
   color: white;
 }
+
+/* ==========================================
+   Help Panel
+   ========================================== */
+
+.help-panel {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.help-panel.open {
+  opacity: 1;
+}
+
+.help-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.help-panel-content {
+  position: relative;
+  width: 480px;
+  max-width: 90vw;
+  height: 100%;
+  background: var(--donna-bg-primary, #18181b);
+  border-left: 1px solid var(--donna-border, #3f3f46);
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+}
+
+.help-panel.open .help-panel-content {
+  transform: translateX(0);
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-lg, 16px);
+  border-bottom: 1px solid var(--donna-border, #3f3f46);
+  position: sticky;
+  top: 0;
+  background: var(--donna-bg-primary, #18181b);
+  z-index: 1;
+}
+
+.help-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--donna-text-primary, #e4e4e7);
+  margin: 0;
+}
+
+.help-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--donna-text-muted, #71717a);
+  border-radius: var(--radius-sm, 4px);
+  transition: all 0.15s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.help-close:hover {
+  background: var(--donna-bg-secondary, #1f1f23);
+  color: var(--donna-text-primary, #e4e4e7);
+}
+
+.help-content {
+  padding: var(--spacing-lg, 16px);
+}
+
+.help-section {
+  margin-bottom: var(--spacing-xl, 24px);
+}
+
+.help-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--donna-text-primary, #e4e4e7);
+  margin: 0 0 var(--spacing-md, 12px) 0;
+  padding-bottom: var(--spacing-xs, 4px);
+  border-bottom: 1px solid var(--donna-border, #3f3f46);
+}
+
+/* Shortcuts Grid */
+.shortcuts-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs, 4px);
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm, 8px) var(--spacing-md, 12px);
+  background: var(--donna-bg-secondary, #1f1f23);
+  border-radius: var(--radius-md, 8px);
+}
+
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcut-keys kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--donna-bg-primary, #18181b);
+  border: 1px solid var(--donna-border, #3f3f46);
+  border-radius: var(--radius-sm, 4px);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--donna-text-primary, #e4e4e7);
+}
+
+.shortcut-desc {
+  font-size: 13px;
+  color: var(--donna-text-secondary, #a1a1aa);
+}
+
+/* Feature Documentation */
+.help-features {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 12px);
+}
+
+.help-feature {
+  display: flex;
+  gap: var(--spacing-md, 12px);
+  padding: var(--spacing-md, 12px);
+  background: var(--donna-bg-secondary, #1f1f23);
+  border-radius: var(--radius-md, 8px);
+}
+
+.help-feature-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--donna-bg-primary, #18181b);
+  border-radius: var(--radius-md, 8px);
+  color: var(--donna-accent, #a78bfa);
+  flex-shrink: 0;
+}
+
+.help-feature-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.help-feature-content h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--donna-text-primary, #e4e4e7);
+  margin: 0 0 4px 0;
+}
+
+.help-feature-content p {
+  font-size: 12px;
+  color: var(--donna-text-muted, #71717a);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Help Footer */
+.help-footer {
+  margin-top: var(--spacing-xl, 24px);
+  padding-top: var(--spacing-md, 12px);
+  border-top: 1px solid var(--donna-border, #3f3f46);
+  text-align: center;
+}
+
+.help-version {
+  font-size: 12px;
+  color: var(--donna-text-muted, #71717a);
+  margin: 0 0 var(--spacing-xs, 4px) 0;
+}
+
+.help-hint {
+  font-size: 11px;
+  color: var(--donna-text-dim, #52525b);
+  margin: 0;
+}
+
+.help-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  background: var(--donna-bg-secondary, #1f1f23);
+  border: 1px solid var(--donna-border, #3f3f46);
+  border-radius: 3px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--donna-text-secondary, #a1a1aa);
+}
+
+/* ==========================================
+   Confirm Dialog
+   ========================================== */
+
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.confirm-dialog {
+  width: 320px;
+  max-width: 90vw;
+  background: var(--donna-bg-elevated, #27272a);
+  border: 1px solid var(--donna-border, #3f3f46);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.confirm-dialog-content {
+  padding: var(--spacing-lg, 16px);
+  text-align: center;
+}
+
+.confirm-dialog-content p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--donna-text-primary, #e4e4e7);
+}
+
+.confirm-dialog-subtitle {
+  margin-top: var(--spacing-xs, 4px) !important;
+  font-size: 12px !important;
+  color: var(--donna-text-muted, #71717a) !important;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  border-top: 1px solid var(--donna-border, #3f3f46);
+}
+
+.confirm-dialog-cancel,
+.confirm-dialog-confirm {
+  flex: 1;
+  padding: var(--spacing-md, 12px);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border: none;
+  background: transparent;
+}
+
+.confirm-dialog-cancel {
+  color: var(--donna-text-secondary, #a1a1aa);
+  border-right: 1px solid var(--donna-border, #3f3f46);
+}
+
+.confirm-dialog-cancel:hover {
+  background: var(--donna-bg-primary, #18181b);
+}
+
+.confirm-dialog-confirm {
+  color: var(--donna-error, #ef4444);
+}
+
+.confirm-dialog-confirm:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.confirm-dialog-cancel:active,
+.confirm-dialog-confirm:active {
+  transform: scale(0.98);
+}
+
+/* ==========================================
+   Button States (General)
+   ========================================== */
+
+.workflow-edit,
+.workflow-delete,
+.btn-add-workflow,
+.settings-close,
+.block-copy,
+.block-toggle,
+.workflow-cancel,
+.workflow-run,
+.editor-cancel,
+.editor-save,
+.workflow-close,
+.editor-close {
+  cursor: pointer;
+}
+
+/* Ensure buttons have no default styles leaking */
+button.workflow-edit,
+button.workflow-delete,
+button.btn-add-workflow,
+button.settings-close,
+button.block-copy,
+button.block-toggle,
+button.workflow-cancel,
+button.workflow-run,
+button.editor-cancel,
+button.editor-save,
+button.workflow-close,
+button.editor-close {
+  border: none;
+}
+
+.workflow-edit:active,
+.workflow-delete:active,
+.btn-add-workflow:active,
+.settings-close:active,
+.block-copy:active,
+.block-toggle:active {
+  transform: scale(0.95);
+}
+
+.editor-cancel:hover {
+  background: var(--donna-bg-primary, #18181b);
+}
+
+.editor-save:hover {
+  background: var(--donna-accent-hover, #8b5cf6);
+}
+
+.editor-save:active,
+.editor-cancel:active,
+.workflow-cancel:active,
+.workflow-run:active {
+  transform: scale(0.98);
+}
+
+.workflow-edit:focus-visible,
+.workflow-delete:focus-visible,
+.btn-add-workflow:focus-visible,
+.settings-close:focus-visible,
+.workflow-cancel:focus-visible,
+.workflow-run:focus-visible,
+.editor-cancel:focus-visible,
+.editor-save:focus-visible,
+.confirm-dialog-cancel:focus-visible,
+.confirm-dialog-confirm:focus-visible,
+.block-copy:focus-visible,
+.block-toggle:focus-visible {
+  outline: 2px solid var(--donna-accent, #a78bfa);
+  outline-offset: 2px;
+}

@@ -3,6 +3,7 @@
 
 :root {
   /* Donna Color Palette - Warm, inviting, professional */
+  /* Dark theme (default) */
   --donna-bg-deep: #0f0f12;
   --donna-bg-primary: #16161a;
   --donna-bg-secondary: #1c1c21;
@@ -62,6 +63,44 @@
 
   /* Traffic light offset for macOS */
   --titlebar-height: 52px;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  /* Light backgrounds - clean, professional */
+  --donna-bg-deep: #f8f8fa;
+  --donna-bg-primary: #ffffff;
+  --donna-bg-secondary: #f4f4f5;
+  --donna-bg-elevated: #fafafa;
+  --donna-bg-hover: #e4e4e7;
+  --donna-bg-active: #d4d4d8;
+
+  /* Accent colors - slightly deeper for light backgrounds */
+  --donna-accent: #8b5cf6;
+  --donna-accent-dim: #7c3aed;
+  --donna-accent-bright: #a78bfa;
+  --donna-accent-glow: rgba(139, 92, 246, 0.12);
+
+  /* Text colors - dark for readability */
+  --donna-text-primary: #18181b;
+  --donna-text-secondary: #52525b;
+  --donna-text-muted: #71717a;
+  --donna-text-dim: #a1a1aa;
+
+  /* Semantic colors - slightly adjusted for light background */
+  --donna-success: #22c55e;
+  --donna-warning: #f59e0b;
+  --donna-error: #ef4444;
+  --donna-info: #3b82f6;
+
+  /* Borders - darker for light backgrounds */
+  --donna-border: rgba(0, 0, 0, 0.08);
+  --donna-border-subtle: rgba(0, 0, 0, 0.04);
+
+  /* Shadows - lighter for light backgrounds */
+  --donna-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --donna-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --donna-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 * {

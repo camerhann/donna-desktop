@@ -34,6 +34,7 @@ class AgentInputBar {
     // Sub-managers
     this.fileManager = null;
     this.voiceManager = null;
+    this.shortcutsManager = null;
 
     this.init();
   }
@@ -47,6 +48,7 @@ class AgentInputBar {
     this.addStyles();
     this.initFileManager();
     this.initVoiceManager();
+    this.initShortcutsManager();
   }
 
   /**
@@ -178,6 +180,18 @@ class AgentInputBar {
 
       // Create button elements but use our own button styling
       // The voice manager's events will still work
+    }
+  }
+
+  /**
+   * Initialize text input shortcuts manager
+   * Provides macOS-style cursor movement: Cmd+Arrow, Option+Arrow, Cmd+Backspace, etc.
+   */
+  initShortcutsManager() {
+    if (window.TextInputShortcuts && this.textarea) {
+      this.shortcutsManager = new window.TextInputShortcuts(this.textarea, {
+        onInput: () => this.handleInput()
+      });
     }
   }
 
@@ -548,6 +562,12 @@ class AgentInputBar {
    * Destroy the component
    */
   destroy() {
+    // Clean up shortcuts manager
+    if (this.shortcutsManager) {
+      this.shortcutsManager.destroy();
+      this.shortcutsManager = null;
+    }
+
     if (this.wrapper && this.wrapper.parentNode) {
       this.wrapper.parentNode.removeChild(this.wrapper);
     }

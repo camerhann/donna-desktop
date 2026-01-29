@@ -14,6 +14,7 @@ class DonnaApp {
     this.commandPalette = null;
     this.workflowManager = null;
     this.terminalSettings = null;
+    this.helpPanel = null;
     this.config = null;
     // Agent picker for CLI-based AI sessions
     this.agentPicker = null;
@@ -79,6 +80,12 @@ class DonnaApp {
       this.terminalSettings?.toggle();
     });
 
+    // Bind help button - opens help panel
+    const helpBtn = document.getElementById('help-btn');
+    helpBtn?.addEventListener('click', () => {
+      this.helpPanel?.toggle();
+    });
+
     // Handle window resize
     let resizeTimeout;
     window.addEventListener('resize', () => {
@@ -139,10 +146,14 @@ class DonnaApp {
     // Terminal Settings
     this.terminalSettings = new TerminalSettings();
 
+    // Help Panel
+    this.helpPanel = new HelpPanel();
+
     // Make available globally for other components
     window.commandPalette = this.commandPalette;
     window.workflowManager = this.workflowManager;
     window.terminalSettings = this.terminalSettings;
+    window.helpPanel = this.helpPanel;
   }
 
   /**
@@ -260,6 +271,9 @@ class DonnaApp {
         break;
       case 'settings':
         this.terminalSettings?.toggle();
+        break;
+      case 'help':
+        this.helpPanel?.toggle();
         break;
     }
   }

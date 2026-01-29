@@ -292,6 +292,11 @@ class DonnaTerminal {
     };
     window.addEventListener('suggestionAccepted', this.suggestionAcceptedHandler);
 
+    // Register with ThemeManager for dynamic theme updates (Issue #14)
+    if (window.themeManager) {
+      window.themeManager.registerXterm(this);
+    }
+
     return this;
   }
 
@@ -573,6 +578,11 @@ class DonnaTerminal {
     if (this.suggestionAcceptedHandler) {
       window.removeEventListener('suggestionAccepted', this.suggestionAcceptedHandler);
       this.suggestionAcceptedHandler = null;
+    }
+
+    // Unregister from ThemeManager (Issue #14)
+    if (window.themeManager) {
+      window.themeManager.unregisterXterm(this);
     }
 
     // Clean up scroll tracking (Issue #2 fix)

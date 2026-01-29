@@ -78,6 +78,7 @@ class SessionManager {
     const config = {
       originalId: session.id,
       name: session.name,
+      subname: session.subname || null,  // Persist custom subname
       type: session.type,
       agentId: session.agentId || null,
       agentInfo: session.agentInfo || null,
@@ -123,6 +124,12 @@ class SessionManager {
           // Mark as pinned
           session.pinned = true;
           this.sidebar?.setPinned(session.id, true);
+
+          // Restore custom subname if it was set
+          if (config.subname) {
+            session.subname = config.subname;
+            this.sidebar?.updateSession(session.id, { subname: config.subname });
+          }
 
           // Update storage with new session ID
           this.updatePinnedSessionId(config.originalId, session.id);
@@ -307,6 +314,7 @@ class SessionManager {
     const session = {
       id,
       name: sessionName,
+      subname: null,   // Custom subtitle for the session (user-editable)
       type: 'agent',
       agentId: agent.id,
       agentInfo: agent,
@@ -465,10 +473,20 @@ class SessionManager {
           }
         });
 
-        // Handle PTY exit
+        // Handle PTY exit - properly reset terminal state (fixes Ctrl+C exit freeze)
         terminal.cleanupExitListener = window.donnaTerminal.onExit(({ id: exitId, exitCode }) => {
           if (exitId === terminal.sessionId) {
+            // Reset terminal to main screen buffer (fixes alternate screen freeze)
+            terminal.term.write('\x1b[?1049l'); // Exit alternate screen buffer
+            terminal.term.write('\x1b[?25h');   // Show cursor (in case hidden)
+            terminal.term.write('\x1b[0m');     // Reset all text attributes
+            terminal.term.write('\x1b[2J');     // Clear entire screen
+            terminal.term.write('\x1b[H');      // Move cursor to home position
+
+            // Show exit message
             terminal.term.write(`\r\n\x1b[90m[${agent.name} exited with code ${exitCode}]\x1b[0m\r\n`);
+            terminal.term.write('\r\n\x1b[33mSession ended. Close tab or start new session.\x1b[0m\r\n');
+
             if (window.sessionManager) {
               window.sessionManager.handleSessionExit(exitId);
             }
@@ -789,6 +807,29 @@ class SessionManager {
     if (session) {
       session.name = newName;
       this.sidebar?.updateSession(sessionId, { name: newName });
+    }
+  }
+
+  /**
+   * Set a custom subname (subtitle) for a session
+   * This overrides the default CLI name or path shown in the sidebar
+   */
+  setSubname(sessionId, subname) {
+    if (!sessionId) return;
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.subname = subname || null;
+      this.sidebar?.updateSession(sessionId, { subname: subname });
+
+      // Update pinned storage if session is pinned
+      if (session.pinned) {
+        const pinned = this.getPinnedSessions();
+        const pinnedSession = pinned.find(p => p.originalId === sessionId);
+        if (pinnedSession) {
+          pinnedSession.subname = subname || null;
+          localStorage.setItem(this.PINNED_STORAGE_KEY, JSON.stringify(pinned));
+        }
+      }
     }
   }
 
