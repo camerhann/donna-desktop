@@ -143,6 +143,23 @@
   border-radius: 0 2px 2px 0;
 }
 
+/* Focus-visible styling for keyboard navigation */
+.session-item:focus {
+  outline: none;
+}
+
+.session-item:focus-visible {
+  outline: 2px solid var(--donna-accent);
+  outline-offset: -2px;
+  background: var(--donna-bg-hover);
+}
+
+.session-close:focus-visible {
+  outline: 2px solid var(--donna-accent);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
 /* Session icon */
 .session-icon {
   width: 20px;

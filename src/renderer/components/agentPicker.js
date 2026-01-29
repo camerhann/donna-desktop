@@ -23,9 +23,9 @@ class AgentPicker {
     this.modal.className = 'agent-picker-modal';
     this.modal.innerHTML = `
       <div class="agent-picker-backdrop"></div>
-      <div class="agent-picker-container">
+      <div class="agent-picker-container" role="dialog" aria-modal="true" aria-labelledby="agent-picker-title">
         <div class="agent-picker-header">
-          <h2>Choose Your AI</h2>
+          <h2 id="agent-picker-title">Choose Your AI</h2>
           <p>Select a personality to start a new session</p>
         </div>
         <div class="agent-picker-grid" id="agent-grid">
@@ -72,7 +72,7 @@ class AgentPicker {
   renderAgents() {
     const grid = this.modal.querySelector('#agent-grid');
 
-    if (this.agents.length === 0) {
+    if (!this.agents || this.agents.length === 0) {
       grid.innerHTML = `
         <div class="agent-picker-empty">
           <p>No AI CLIs found.</p>
@@ -82,17 +82,29 @@ class AgentPicker {
       return;
     }
 
-    grid.innerHTML = this.agents.map((agent, index) => `
-      <div class="agent-card" data-agent-id="${agent.id}" tabindex="0">
-        <div class="agent-icon" style="background: ${agent.color}20; color: ${agent.color}">
-          ${agent.icon}
+    // Filter out malformed agent entries to handle loading failures gracefully
+    const validAgents = this.agents.filter(agent => agent && agent.id && agent.name);
+    if (validAgents.length === 0) {
+      grid.innerHTML = `
+        <div class="agent-picker-empty">
+          <p>No valid AI agents available.</p>
+          <p>Agent data may be corrupted. Please restart the application.</p>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = validAgents.map((agent, index) => `
+      <div class="agent-card" data-agent-id="${agent.id}" tabindex="0" role="button" aria-label="${agent.name}: ${agent.description || ''}. Press ${index + 1} or Enter to select.">
+        <div class="agent-icon" style="background: ${agent.color || '#6366f1'}20; color: ${agent.color || '#6366f1'}" aria-hidden="true">
+          ${agent.icon || '?'}
         </div>
         <div class="agent-info">
           <h3 class="agent-name">${agent.name}</h3>
-          <p class="agent-description">${agent.description}</p>
-          <span class="agent-cli">${agent.cli}</span>
+          <p class="agent-description">${agent.description || ''}</p>
+          <span class="agent-cli">${agent.cli || 'unknown'}</span>
         </div>
-        <span class="agent-shortcut">${index + 1}</span>
+        <span class="agent-shortcut" aria-hidden="true">${index + 1}</span>
       </div>
     `).join('');
 
@@ -125,16 +137,24 @@ class AgentPicker {
   }
 
   selectAgent(agent) {
+    console.log('[AgentPicker] selectAgent called with:', agent);
     this.selectedAgent = agent;
+    // Save callback before close() nullifies it
+    const callback = this.onSelectCallback;
     this.close();
-    if (this.onSelectCallback) {
-      this.onSelectCallback(agent);
+    if (callback) {
+      console.log('[AgentPicker] Calling onSelectCallback');
+      callback(agent);
+    } else {
+      console.log('[AgentPicker] No onSelectCallback set!');
     }
   }
 
   open(onSelect) {
     this.onSelectCallback = onSelect;
     this.selectedAgent = null;
+    // Store the currently focused element to restore focus on close
+    this.previouslyFocusedElement = document.activeElement;
     this.loadAgents();
     this.modal.classList.add('active');
 
@@ -148,6 +168,11 @@ class AgentPicker {
   close() {
     this.modal.classList.remove('active');
     this.onSelectCallback = null;
+    // Return focus to the element that opened the modal
+    if (this.previouslyFocusedElement) {
+      this.previouslyFocusedElement.focus();
+      this.previouslyFocusedElement = null;
+    }
   }
 
   destroy() {

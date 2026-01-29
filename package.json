@@ -7,23 +7,30 @@
     "start": "electron .",
     "dev": "electron . --enable-logging",
     "build": "electron-builder",
-    "build:mac": "electron-builder --mac"
+    "build:mac": "electron-builder --mac",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "author": "Chris Ahern",
   "license": "MIT",
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",
-    "fs-extra": "^11.3.3"
+    "fs-extra": "^11.3.3",
+    "jest": "^30.2.0"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-unicode11": "^0.8.0",
     "@xterm/addon-web-links": "^0.11.0",
     "@xterm/xterm": "^5.5.0",
+    "cheerio": "^1.2.0",
     "highlight.js": "^11.11.1",
     "marked": "^17.0.1",
-    "node-pty": "^1.0.0"
+    "node-pty": "^1.0.0",
+    "sharp": "^0.34.5"
   },
   "build": {
     "appId": "com.donna.desktop",

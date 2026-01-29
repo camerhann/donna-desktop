@@ -188,3 +188,80 @@ contextBridge.exposeInMainWorld('donnaConfig', {
   set: (config) => ipcRenderer.invoke('config:set', config),
   setApiKey: (provider, apiKey) => ipcRenderer.invoke('config:setApiKey', { provider, apiKey })
 });
+
+// Speech/Voice API (Phase 6: Personal Speech Learning)
+contextBridge.exposeInMainWorld('donnaSpeech', {
+  addCorrection: (original, corrected) => ipcRenderer.invoke('speech:addCorrection', { original, corrected }),
+  getPatterns: (options = {}) => ipcRenderer.invoke('speech:getPatterns', options),
+  deletePattern: (id) => ipcRenderer.invoke('speech:deletePattern', { id }),
+  updatePattern: (id, updates) => ipcRenderer.invoke('speech:updatePattern', { id, updates }),
+  applyPatterns: (text) => ipcRenderer.invoke('speech:applyPatterns', { text }),
+  getStats: () => ipcRenderer.invoke('speech:getStats'),
+  exportPatterns: () => ipcRenderer.invoke('speech:exportPatterns'),
+  importPatterns: (options = {}) => ipcRenderer.invoke('speech:importPatterns', options),
+  clearPatterns: () => ipcRenderer.invoke('speech:clearPatterns')
+});
+
+// Link Preview API (Phase 2: Rich Link Previews)
+contextBridge.exposeInMainWorld('donnaLinks', {
+  getPreview: (url) => ipcRenderer.invoke('links:getPreview', { url }),
+  getMultiplePreviews: (urls) => ipcRenderer.invoke('links:getMultiplePreviews', { urls }),
+  clearCache: () => ipcRenderer.invoke('links:clearCache'),
+  getCacheStats: () => ipcRenderer.invoke('links:getCacheStats')
+});
+
+// Files API (Phase 3: File Cards/Attachments)
+contextBridge.exposeInMainWorld('donnaFiles', {
+  process: (filePath) => ipcRenderer.invoke('files:process', { filePath }),
+  processMultiple: (filePaths) => ipcRenderer.invoke('files:processMultiple', { filePaths }),
+  encodeForAI: (filePath) => ipcRenderer.invoke('files:encodeForAI', { filePath }),
+  readText: (filePath, maxLength) => ipcRenderer.invoke('files:readText', { filePath, maxLength }),
+  prepareForChat: (attachments) => ipcRenderer.invoke('files:prepareForChat', { attachments })
+});
+
+// Voice API (Phase 5: Voice Input)
+contextBridge.exposeInMainWorld('donnaVoice', {
+  startListening: (options = {}) => ipcRenderer.invoke('voice:startListening', options),
+  stopListening: () => ipcRenderer.invoke('voice:stopListening'),
+  getState: () => ipcRenderer.invoke('voice:getState'),
+  setMode: (mode) => ipcRenderer.invoke('voice:setMode', { mode }),
+  processTranscription: (text, isFinal) => ipcRenderer.invoke('voice:processTranscription', { text, isFinal }),
+  applyCorrections: (text) => ipcRenderer.invoke('voice:applyCorrections', { text }),
+  onStateChange: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('voice:stateChange', handler);
+    return () => ipcRenderer.removeListener('voice:stateChange', handler);
+  },
+  onTranscription: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('voice:transcription', handler);
+    return () => ipcRenderer.removeListener('voice:transcription', handler);
+  },
+  onTranscriptionComplete: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('voice:transcriptionComplete', handler);
+    return () => ipcRenderer.removeListener('voice:transcriptionComplete', handler);
+  }
+});
+
+// Vault API (Phase 7: Obsidian Vault Integration)
+contextBridge.exposeInMainWorld('donnaVault', {
+  setPath: (vaultPath) => ipcRenderer.invoke('vault:setPath', { vaultPath }),
+  search: (query) => ipcRenderer.invoke('vault:search', { query }),
+  readNote: (path) => ipcRenderer.invoke('vault:readNote', { path }),
+  createNote: (path, content) => ipcRenderer.invoke('vault:createNote', { path, content }),
+  resolveWikilink: (linkText) => ipcRenderer.invoke('vault:resolveWikilink', { linkText }),
+  getBacklinks: (path) => ipcRenderer.invoke('vault:getBacklinks', { path }),
+  getFolderTree: () => ipcRenderer.invoke('vault:getFolderTree'),
+  rebuildIndex: () => ipcRenderer.invoke('vault:rebuildIndex'),
+  onIndexComplete: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('vault:indexComplete', handler);
+    return () => ipcRenderer.removeListener('vault:indexComplete', handler);
+  },
+  onFileChanged: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('vault:fileChanged', handler);
+    return () => ipcRenderer.removeListener('vault:fileChanged', handler);
+  }
+});

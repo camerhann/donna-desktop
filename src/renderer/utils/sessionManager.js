@@ -30,14 +30,15 @@ class SessionManager {
   setupChatListeners() {
     if (!window.donnaChat) return;
 
-    window.donnaChat.onStreamChunk(({ streamId, content }) => {
+    // Store cleanup functions for IPC listeners
+    this.cleanupStreamChunk = window.donnaChat.onStreamChunk(({ streamId, content }) => {
       const session = this.findSessionByStreamId(streamId);
       if (session?.chat) {
         session.chat.handleStreamChunk(content);
       }
     });
 
-    window.donnaChat.onStreamComplete(({ streamId, message }) => {
+    this.cleanupStreamComplete = window.donnaChat.onStreamComplete(({ streamId, message }) => {
       const session = this.findSessionByStreamId(streamId);
       if (session?.chat) {
         session.chat.handleStreamComplete(message);
@@ -45,13 +46,31 @@ class SessionManager {
       this.streamListeners.delete(streamId);
     });
 
-    window.donnaChat.onStreamError(({ streamId, error }) => {
+    this.cleanupStreamError = window.donnaChat.onStreamError(({ streamId, error }) => {
       const session = this.findSessionByStreamId(streamId);
       if (session?.chat) {
         session.chat.handleStreamError(error);
       }
       this.streamListeners.delete(streamId);
     });
+  }
+
+  /**
+   * Clean up chat stream listeners
+   */
+  cleanupChatListeners() {
+    if (this.cleanupStreamChunk) {
+      this.cleanupStreamChunk();
+      this.cleanupStreamChunk = null;
+    }
+    if (this.cleanupStreamComplete) {
+      this.cleanupStreamComplete();
+      this.cleanupStreamComplete = null;
+    }
+    if (this.cleanupStreamError) {
+      this.cleanupStreamError();
+      this.cleanupStreamError = null;
+    }
   }
 
   findSessionByStreamId(streamId) {
@@ -149,6 +168,7 @@ class SessionManager {
    * This is the PRIMARY way to create AI sessions (uses installed CLIs, not API)
    */
   async createAgentSession(agent) {
+    console.log('[SessionManager] createAgentSession called with agent:', agent);
     const id = this.generateId();
     const sessionName = agent.name || `Agent ${this.sessionCounter}`;
 
@@ -270,10 +290,12 @@ class SessionManager {
 
         // Create the PTY process using agents API (spawns CLI with personality)
         const { cols, rows } = terminal.term;
+        console.log('[SessionManager] Calling donnaAgents.createSession:', terminal.sessionId, agent.id, cols, rows);
         const result = await window.donnaAgents.createSession(terminal.sessionId, agent.id, cols, rows);
+        console.log('[SessionManager] donnaAgents.createSession result:', result);
 
         if (!result.success) {
-          throw new Error('Failed to create agent session');
+          throw new Error(`Failed to create agent session: ${result.error || 'unknown error'}`);
         }
 
         // Handle data from PTY
@@ -316,7 +338,8 @@ class SessionManager {
       await terminal.init();
       session.terminal = terminal;
     } catch (error) {
-      console.error('Failed to initialize agent terminal:', error);
+      console.error('[SessionManager] Failed to initialize agent terminal:', error);
+      console.error('[SessionManager] Error stack:', error.stack);
       const welcomeScreen = document.getElementById('welcome-screen');
       if (welcomeScreen) {
         welcomeScreen.style.display = 'flex';
@@ -344,16 +367,22 @@ class SessionManager {
   async createChatSession(name = null, config = {}) {
     const id = this.generateId();
 
-    // Create chat session on backend
-    const result = await window.donnaChat.createSession({
-      name: name || `Chat ${this.sessionCounter}`,
-      provider: config.provider || 'claude',
-      model: config.model,
-      systemPrompt: config.systemPrompt
-    });
+    // Create chat session on backend with error handling
+    let result;
+    try {
+      result = await window.donnaChat.createSession({
+        name: name || `Chat ${this.sessionCounter}`,
+        provider: config.provider || 'claude',
+        model: config.model,
+        systemPrompt: config.systemPrompt
+      });
+    } catch (error) {
+      console.error('Failed to create chat session:', error);
+      throw new Error(error.message || 'Failed to connect to chat backend');
+    }
 
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to create chat session');
+    if (!result || !result.success) {
+      throw new Error(result?.error || 'Failed to create chat session');
     }
 
     const backendSession = result.session;
@@ -402,6 +431,7 @@ class SessionManager {
    * Switch to a specific session
    */
   async switchToSession(sessionId) {
+    if (!sessionId) return;
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
@@ -423,7 +453,7 @@ class SessionManager {
     await new Promise(resolve => setTimeout(resolve, 50));
 
     // Show terminal or chat based on session type
-    if (session.type === 'terminal' && session.terminal) {
+    if ((session.type === 'terminal' || session.type === 'agent') && session.terminal) {
       // Wait for terminal to be ready before showing (V5 improvement)
       if (session.terminal.isReady) {
         session.terminal.show();
@@ -446,8 +476,16 @@ class SessionManager {
    * Close a session
    */
   async closeSession(sessionId) {
+    if (!sessionId) return;
     const session = this.sessions.get(sessionId);
     if (!session) return;
+
+    // Clean up any orphaned streams for this session
+    for (const [streamId, sid] of this.streamListeners.entries()) {
+      if (sid === sessionId) {
+        this.streamListeners.delete(streamId);
+      }
+    }
 
     // Destroy terminal or chat
     if (session.terminal) {
@@ -484,6 +522,7 @@ class SessionManager {
    * Handle when a session's terminal exits
    */
   handleSessionExit(sessionId) {
+    if (!sessionId) return;
     const session = this.sessions.get(sessionId);
     if (session) {
       this.sidebar?.updateSession(sessionId, { status: false });
@@ -494,6 +533,7 @@ class SessionManager {
    * Rename a session
    */
   renameSession(sessionId, newName) {
+    if (!sessionId || !newName) return;
     const session = this.sessions.get(sessionId);
     if (session) {
       session.name = newName;
@@ -519,8 +559,9 @@ class SessionManager {
    * Handle window resize - fit all terminals
    */
   handleResize() {
+    if (!this.sessions) return;
     for (const session of this.sessions.values()) {
-      if (session.terminal) {
+      if (session?.terminal) {
         session.terminal.fit();
       }
     }
@@ -534,6 +575,10 @@ class SessionManager {
     for (const id of sessionIds) {
       await this.closeSession(id);
     }
+    // Clean up IPC listeners
+    this.cleanupChatListeners();
+    // Clear any remaining stream listeners
+    this.streamListeners.clear();
   }
 }
 

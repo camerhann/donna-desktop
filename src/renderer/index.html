@@ -13,9 +13,12 @@
   <link rel="stylesheet" href="styles/agentPicker.css">
 </head>
 <body>
+  <!-- Skip link for keyboard navigation -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
   <div id="app">
     <!-- Sidebar with session tabs -->
-    <aside id="sidebar">
+    <aside id="sidebar" role="complementary" aria-label="Session navigation">
       <div class="sidebar-header">
         <div class="app-title">
           <span class="donna-logo">D</span>
@@ -60,7 +63,7 @@
     </aside>
 
     <!-- Main terminal area -->
-    <main id="main-content">
+    <main id="main-content" role="main" aria-label="Terminal and chat content">
       <div id="terminal-tabs" class="terminal-tabs">
         <!-- Tab bar for multiple terminals in split view -->
       </div>
@@ -108,6 +111,7 @@
 
   <!-- V5: Terminal power features -->
   <script src="components/commandBlocks.js"></script>
+  <script src="components/inlineSuggestions.js"></script>
   <script src="components/aiSuggestions.js"></script>
   <script src="components/commandPalette.js"></script>
   <script src="components/workflowManager.js"></script>
@@ -115,6 +119,12 @@
 
   <!-- Agent system -->
   <script src="components/agentPicker.js"></script>
+
+  <!-- Phase 2-7: Additional features -->
+  <script src="components/linkPreview.js"></script>
+  <script src="components/fileAttachment.js"></script>
+  <script src="components/voiceInput.js"></script>
+  <script src="components/vaultBrowser.js"></script>
 
   <!-- Main app -->
   <script src="app.js"></script>

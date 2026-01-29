@@ -1,42 +1,30 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const pty = require('node-pty');
 const { createOrchestrator } = require('./models/orchestrator');
-const { ModelManager, ClaudeProvider, GeminiProvider, OllamaProvider, OpenAICompatibleProvider } = require('./models/modelProvider');
 const { createImageManager } = require('./imaging/imageProvider');
 const sdInstaller = require('./imaging/sdInstaller');
 const { ChatManager } = require('./chat/chatManager');
 const { TerminalConfig } = require('./config/terminalConfig');
-const { listAgents, getAvailableAgents, getAgent, getAgentCliCommand, checkCliAvailable } = require('./agents/agentDefinitions');
+const agentDefinitions = require('./agents/agentDefinitions');
+const { registerAllHandlers } = require('./ipc');
 
-// Store terminal sessions
+// State
 const terminals = new Map();
+const activeStreams = new Map();
 let mainWindow = null;
-
-// Model orchestration
 let orchestrator = null;
 let modelManager = null;
 let modelConfig = {};
-
-// Image generation
-let imageManager = null;
 let imageConfig = {};
-
-// Chat manager
+let imageManager = null;
 let chatManager = null;
-
-// Active streams for chat
-const activeStreams = new Map();
-
-// Terminal configuration
 let terminalConfig = null;
 
-// Config file path
+// Config
 const configPath = path.join(os.homedir(), '.donna-desktop', 'config.json');
 
-// Load config
 function loadConfig() {
   try {
     if (fs.existsSync(configPath)) {
@@ -45,32 +33,23 @@ function loadConfig() {
       imageConfig = config.imaging || {};
       return config;
     }
-  } catch (e) {
-    console.error('Failed to load config:', e);
-  }
+  } catch (e) { console.error('Failed to load config:', e); }
   modelConfig = {};
   imageConfig = {};
   return {};
 }
 
-// Save config
 function saveConfig(config) {
   try {
     const dir = path.dirname(configPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     modelConfig = config;
     imageConfig = config.imaging || {};
     return true;
-  } catch (e) {
-    console.error('Failed to save config:', e);
-    return false;
-  }
+  } catch (e) { console.error('Failed to save config:', e); return false; }
 }
 
-// Initialize orchestrator with config
 function initializeOrchestrator() {
   loadConfig();
   orchestrator = createOrchestrator(modelConfig.models || {});
@@ -78,620 +57,59 @@ function initializeOrchestrator() {
   return orchestrator;
 }
 
-// Initialize image manager
 function initializeImageManager() {
   loadConfig();
   imageManager = createImageManager(imageConfig);
   return imageManager;
 }
 
-// Initialize chat manager
 function initChatManager() {
-  if (!chatManager) {
-    chatManager = new ChatManager();
-  }
+  if (!chatManager) chatManager = new ChatManager();
   return chatManager;
 }
 
-// Initialize terminal config
 function initTerminalConfig() {
-  if (!terminalConfig) {
-    terminalConfig = new TerminalConfig();
-  }
+  if (!terminalConfig) terminalConfig = new TerminalConfig();
   return terminalConfig;
+}
+
+function getDefaultShell() {
+  return process.platform === 'darwin' ? (process.env.SHELL || '/bin/zsh') : (process.env.SHELL || '/bin/bash');
 }
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 800,
-    minHeight: 600,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    vibrancy: 'under-window',
-    visualEffectState: 'active',
-    backgroundColor: '#00000000',
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    }
+    width: 1400, height: 900, minWidth: 800, minHeight: 600,
+    titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 16 },
+    vibrancy: 'under-window', visualEffectState: 'active', backgroundColor: '#00000000',
+    webPreferences: { nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, 'preload.js') }
   });
-
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-
-  // Open DevTools in development
-  if (process.argv.includes('--enable-logging')) {
-    mainWindow.webContents.openDevTools();
-  }
+  if (process.argv.includes('--enable-logging')) mainWindow.webContents.openDevTools();
 }
 
-// Get the default shell
-function getDefaultShell() {
-  if (process.platform === 'darwin') {
-    return process.env.SHELL || '/bin/zsh';
-  }
-  return process.env.SHELL || '/bin/bash';
-}
-
-// === Terminal IPC Handlers ===
-
-ipcMain.handle('terminal:create', (event, { id, cols, rows }) => {
-  const shell = getDefaultShell();
-
-  const ptyProcess = pty.spawn(shell, [], {
-    name: 'xterm-256color',
-    cols: cols || 80,
-    rows: rows || 24,
-    cwd: os.homedir(),
-    env: {
-      ...process.env,
-      TERM: 'xterm-256color',
-      COLORTERM: 'truecolor'
-    }
-  });
-
-  terminals.set(id, ptyProcess);
-
-  ptyProcess.onData((data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal:data', { id, data });
-    }
-  });
-
-  ptyProcess.onExit(({ exitCode }) => {
-    terminals.delete(id);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal:exit', { id, exitCode });
-    }
-  });
-
-  return { success: true, id };
+// Register all IPC handlers
+registerAllHandlers({
+  terminals,
+  activeStreams,
+  getMainWindow: () => mainWindow,
+  getDefaultShell,
+  getTerminalConfig: initTerminalConfig,
+  getOrchestrator: () => orchestrator,
+  getModelManager: () => modelManager,
+  getImageManager: () => imageManager,
+  getChatManager: initChatManager,
+  initializeOrchestrator,
+  initializeImageManager,
+  loadConfig,
+  saveConfig,
+  getModelConfig: () => modelConfig,
+  setModelConfig: (cfg) => { modelConfig = cfg; },
+  sdInstaller,
+  agentDefinitions
 });
 
-ipcMain.handle('terminal:write', (event, { id, data }) => {
-  const term = terminals.get(id);
-  if (term) {
-    term.write(data);
-    return { success: true };
-  }
-  return { success: false, error: 'Terminal not found' };
-});
-
-ipcMain.handle('terminal:resize', (event, { id, cols, rows }) => {
-  const term = terminals.get(id);
-  if (term) {
-    term.resize(cols, rows);
-    return { success: true };
-  }
-  return { success: false, error: 'Terminal not found' };
-});
-
-ipcMain.handle('terminal:destroy', (event, { id }) => {
-  const term = terminals.get(id);
-  if (term) {
-    term.kill();
-    terminals.delete(id);
-    return { success: true };
-  }
-  return { success: false, error: 'Terminal not found' };
-});
-
-ipcMain.handle('terminal:getCwd', (event, { id }) => {
-  const term = terminals.get(id);
-  if (term) {
-    try {
-      const pid = term.pid;
-      const { execSync } = require('child_process');
-      const cwd = execSync(`lsof -p ${pid} | grep cwd | awk '{print $NF}'`, { encoding: 'utf8' }).trim();
-      return { success: true, cwd };
-    } catch {
-      return { success: true, cwd: os.homedir() };
-    }
-  }
-  return { success: false, error: 'Terminal not found' };
-});
-
-// === Terminal Config IPC Handlers ===
-
-ipcMain.handle('terminal:getConfig', () => {
-  const config = initTerminalConfig();
-  return config.getConfig();
-});
-
-ipcMain.handle('terminal:isFeatureEnabled', (event, { feature }) => {
-  const config = initTerminalConfig();
-  return config.isFeatureEnabled(feature);
-});
-
-ipcMain.handle('terminal:setFeatureEnabled', (event, { feature, enabled }) => {
-  const config = initTerminalConfig();
-  return config.setFeatureEnabled(feature, enabled);
-});
-
-ipcMain.handle('terminal:updateFeatureSettings', (event, { feature, settings }) => {
-  const config = initTerminalConfig();
-  return config.updateFeatureSettings(feature, settings);
-});
-
-ipcMain.handle('terminal:getWorkflows', () => {
-  const config = initTerminalConfig();
-  return config.getWorkflows();
-});
-
-ipcMain.handle('terminal:addWorkflow', (event, { workflow }) => {
-  const config = initTerminalConfig();
-  return config.addWorkflow(workflow);
-});
-
-ipcMain.handle('terminal:updateWorkflow', (event, { id, updates }) => {
-  const config = initTerminalConfig();
-  return config.updateWorkflow(id, updates);
-});
-
-ipcMain.handle('terminal:deleteWorkflow', (event, { id }) => {
-  const config = initTerminalConfig();
-  return config.deleteWorkflow(id);
-});
-
-// === Agent IPC Handlers ===
-// These handlers manage pre-defined AI personalities that wrap Claude Code and Gemini CLIs
-
-ipcMain.handle('agents:list', () => {
-  return listAgents();
-});
-
-ipcMain.handle('agents:available', async () => {
-  return await getAvailableAgents();
-});
-
-ipcMain.handle('agents:get', (event, { id }) => {
-  return getAgent(id);
-});
-
-ipcMain.handle('agents:checkCli', async (event, { cli }) => {
-  return await checkCliAvailable(cli);
-});
-
-// Create an agent session - spawns the CLI with personality prompt
-ipcMain.handle('agents:createSession', (event, { id, agentId, cols, rows, workingDir }) => {
-  const { command, args, agent } = getAgentCliCommand(agentId, workingDir || os.homedir());
-
-  const ptyProcess = pty.spawn(command, args, {
-    name: 'xterm-256color',
-    cols: cols || 80,
-    rows: rows || 24,
-    cwd: workingDir || os.homedir(),
-    env: {
-      ...process.env,
-      TERM: 'xterm-256color',
-      COLORTERM: 'truecolor'
-    }
-  });
-
-  terminals.set(id, ptyProcess);
-
-  ptyProcess.onData((data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal:data', { id, data });
-    }
-  });
-
-  ptyProcess.onExit(({ exitCode }) => {
-    terminals.delete(id);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('terminal:exit', { id, exitCode });
-    }
-  });
-
-  return {
-    success: true,
-    id,
-    agent: {
-      id: agent.id,
-      name: agent.name,
-      description: agent.description,
-      icon: agent.icon,
-      color: agent.color,
-      cli: agent.cli
-    }
-  };
-});
-
-// AI Suggestions handler for terminal
-ipcMain.handle('terminal:getSuggestions', async (event, { input, history, cwd, provider }) => {
-  if (!modelManager) initializeOrchestrator();
-
-  try {
-    const context = `Current directory: ${cwd}
-Recent commands:
-${(history || []).slice(-5).join('\n')}
-
-Current input: ${input}`;
-
-    const prompt = `Suggest 3 shell commands that complete or improve: "${input}"
-Consider the context and provide commands that would be useful.
-Return ONLY a JSON array: [{"command": "...", "description": "..."}]`;
-
-    const response = await modelManager.chat([
-      { role: 'system', content: 'You are a shell command expert. Respond only with valid JSON.' },
-      { role: 'user', content: prompt }
-    ], { provider: provider || 'claude' });
-
-    try {
-      const suggestions = JSON.parse(response.content);
-      return { success: true, suggestions };
-    } catch {
-      return { success: true, suggestions: [] };
-    }
-  } catch (error) {
-    console.error('Failed to generate suggestions:', error);
-    return { success: false, suggestions: [], error: error.message };
-  }
-});
-
-// === Model Provider IPC Handlers ===
-
-ipcMain.handle('models:listProviders', () => {
-  if (!modelManager) initializeOrchestrator();
-  return modelManager.listProviders();
-});
-
-ipcMain.handle('models:chat', async (event, { messages, options }) => {
-  if (!modelManager) initializeOrchestrator();
-  try {
-    const response = await modelManager.chat(messages, options);
-    return { success: true, response };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('models:streamStart', async (event, { streamId, messages, options }) => {
-  if (!modelManager) initializeOrchestrator();
-
-  (async () => {
-    try {
-      for await (const chunk of modelManager.stream(messages, options)) {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('models:streamChunk', { streamId, chunk });
-        }
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('models:streamEnd', { streamId });
-      }
-    } catch (error) {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('models:streamError', { streamId, error: error.message });
-      }
-    }
-  })();
-
-  return { success: true, streamId };
-});
-
-// === Orchestrator IPC Handlers ===
-
-ipcMain.handle('orchestrator:spawnAgent', (event, config) => {
-  if (!orchestrator) initializeOrchestrator();
-  const agent = orchestrator.spawnAgent(config);
-  return { success: true, agent: { id: agent.id, name: agent.name, role: agent.role } };
-});
-
-ipcMain.handle('orchestrator:terminateAgent', (event, { agentId }) => {
-  if (!orchestrator) initializeOrchestrator();
-  const result = orchestrator.terminateAgent(agentId);
-  return { success: result };
-});
-
-ipcMain.handle('orchestrator:createTask', (event, config) => {
-  if (!orchestrator) initializeOrchestrator();
-  const task = orchestrator.createTask(config);
-  return { success: true, task: { id: task.id, type: task.type, status: task.status } };
-});
-
-ipcMain.handle('orchestrator:streamTask', async (event, { streamId, config }) => {
-  if (!orchestrator) initializeOrchestrator();
-
-  (async () => {
-    try {
-      for await (const chunk of orchestrator.streamTask(config)) {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send('orchestrator:taskChunk', { streamId, chunk });
-        }
-      }
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('orchestrator:taskEnd', { streamId });
-      }
-    } catch (error) {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('orchestrator:taskError', { streamId, error: error.message });
-      }
-    }
-  })();
-
-  return { success: true, streamId };
-});
-
-ipcMain.handle('orchestrator:executeComplex', async (event, { description, context }) => {
-  if (!orchestrator) initializeOrchestrator();
-  try {
-    const results = await orchestrator.executeComplexTask(description, context || []);
-    return { success: true, results };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('orchestrator:status', () => {
-  if (!orchestrator) initializeOrchestrator();
-  return orchestrator.getStatus();
-});
-
-// === Image Generation IPC Handlers ===
-
-ipcMain.handle('imaging:listProviders', async () => {
-  if (!imageManager) initializeImageManager();
-  return await imageManager.listProviders();
-});
-
-ipcMain.handle('imaging:generate', async (event, { prompt, options }) => {
-  if (!imageManager) initializeImageManager();
-  try {
-    const result = await imageManager.generate(prompt, options);
-    return { success: true, result };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('imaging:checkRequirements', async () => {
-  return await sdInstaller.checkRequirements();
-});
-
-ipcMain.handle('imaging:getInstallStatus', () => {
-  return sdInstaller.getInstallationStatus();
-});
-
-ipcMain.handle('imaging:installComfyUI', async (event) => {
-  return await sdInstaller.installComfyUI((progress) => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('imaging:installProgress', progress);
-    }
-  });
-});
-
-ipcMain.handle('imaging:startComfyUI', async () => {
-  try {
-    const result = sdInstaller.startComfyUI();
-    return { success: true, ...result };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('imaging:stopComfyUI', async () => {
-  return await sdInstaller.stopComfyUI();
-});
-
-ipcMain.handle('imaging:isComfyUIRunning', async () => {
-  return await sdInstaller.isComfyUIRunning();
-});
-
-ipcMain.handle('imaging:listModels', () => {
-  return sdInstaller.listModels();
-});
-
-ipcMain.handle('imaging:openImagesFolder', () => {
-  const imagesDir = path.join(os.homedir(), '.donna-desktop', 'images');
-  if (!fs.existsSync(imagesDir)) {
-    fs.mkdirSync(imagesDir, { recursive: true });
-  }
-  shell.openPath(imagesDir);
-  return { success: true };
-});
-
-ipcMain.handle('imaging:openImage', (event, { imagePath }) => {
-  if (fs.existsSync(imagePath)) {
-    shell.openPath(imagePath);
-    return { success: true };
-  }
-  return { success: false, error: 'Image not found' };
-});
-
-ipcMain.handle('imaging:saveConfig', (event, config) => {
-  const fullConfig = loadConfig();
-  fullConfig.imaging = config;
-  const success = saveConfig(fullConfig);
-  if (success) {
-    initializeImageManager();
-  }
-  return { success };
-});
-
-// === Chat IPC Handlers ===
-
-ipcMain.handle('chat:createSession', (event, config) => {
-  const manager = initChatManager();
-  const session = manager.createSession(config);
-  return {
-    success: true,
-    session: {
-      id: session.id,
-      name: session.name,
-      provider: session.provider,
-      model: session.model
-    }
-  };
-});
-
-ipcMain.handle('chat:getSession', (event, { sessionId }) => {
-  const manager = initChatManager();
-  const session = manager.getSession(sessionId);
-  if (session) {
-    return { success: true, session: session.toJSON() };
-  }
-  return { success: false, error: 'Session not found' };
-});
-
-ipcMain.handle('chat:listSessions', () => {
-  const manager = initChatManager();
-  return manager.listSessions();
-});
-
-ipcMain.handle('chat:deleteSession', (event, { sessionId }) => {
-  const manager = initChatManager();
-  const success = manager.deleteSession(sessionId);
-  return { success };
-});
-
-ipcMain.handle('chat:renameSession', (event, { sessionId, name }) => {
-  const manager = initChatManager();
-  const success = manager.renameSession(sessionId, name);
-  return { success };
-});
-
-ipcMain.handle('chat:updateSession', (event, { sessionId, updates }) => {
-  const manager = initChatManager();
-  const session = manager.getSession(sessionId);
-  if (session) {
-    if (updates.provider) session.provider = updates.provider;
-    if (updates.model) session.model = updates.model;
-    if (updates.systemPrompt !== undefined) session.systemPrompt = updates.systemPrompt;
-    if (updates.name) session.name = updates.name;
-    manager.saveSession(session);
-    return { success: true };
-  }
-  return { success: false, error: 'Session not found' };
-});
-
-ipcMain.handle('chat:sendMessage', async (event, { sessionId, content }) => {
-  const manager = initChatManager();
-  try {
-    const result = await manager.sendMessage(sessionId, content);
-    return { success: true, ...result };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('chat:streamMessage', async (event, { sessionId, content, streamId }) => {
-  const manager = initChatManager();
-
-  activeStreams.set(streamId, { sessionId, aborted: false });
-
-  (async () => {
-    try {
-      for await (const chunk of manager.streamMessage(sessionId, content)) {
-        if (activeStreams.get(streamId)?.aborted) {
-          break;
-        }
-
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          if (chunk.type === 'chunk') {
-            mainWindow.webContents.send('chat:streamChunk', { streamId, content: chunk.content });
-          } else if (chunk.type === 'complete') {
-            mainWindow.webContents.send('chat:streamComplete', { streamId, message: chunk.message });
-          } else if (chunk.type === 'error') {
-            mainWindow.webContents.send('chat:streamError', { streamId, error: chunk.error });
-          } else if (chunk.type === 'user_message') {
-            mainWindow.webContents.send('chat:userMessage', { streamId, message: chunk.message });
-          }
-        }
-      }
-    } catch (error) {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('chat:streamError', { streamId, error: error.message });
-      }
-    } finally {
-      activeStreams.delete(streamId);
-    }
-  })();
-
-  return { success: true, streamId };
-});
-
-ipcMain.handle('chat:abortStream', (event, { streamId }) => {
-  const stream = activeStreams.get(streamId);
-  if (stream) {
-    stream.aborted = true;
-    return { success: true };
-  }
-  return { success: false };
-});
-
-ipcMain.handle('chat:listProviders', () => {
-  const manager = initChatManager();
-  return manager.listProviders();
-});
-
-ipcMain.handle('chat:updateProviderConfig', (event, { provider, config }) => {
-  const manager = initChatManager();
-  manager.updateProviderConfig(provider, config);
-  return { success: true };
-});
-
-ipcMain.handle('chat:getConfig', () => {
-  const manager = initChatManager();
-  return manager.getConfig();
-});
-
-ipcMain.handle('chat:setDefaultProvider', (event, { provider }) => {
-  const manager = initChatManager();
-  manager.setDefaultProvider(provider);
-  return { success: true };
-});
-
-// === Config IPC Handlers ===
-
-ipcMain.handle('config:get', () => {
-  return loadConfig();
-});
-
-ipcMain.handle('config:set', (event, config) => {
-  const success = saveConfig(config);
-  if (success) {
-    initializeOrchestrator();
-    initializeImageManager();
-  }
-  return { success };
-});
-
-ipcMain.handle('config:setApiKey', (event, { provider, apiKey }) => {
-  loadConfig();
-  if (!modelConfig.models) modelConfig.models = {};
-  if (!modelConfig.models[provider]) modelConfig.models[provider] = {};
-  modelConfig.models[provider].apiKey = apiKey;
-  const success = saveConfig(modelConfig);
-  if (success) {
-    initializeOrchestrator();
-  }
-  return { success };
-});
-
-// === App Lifecycle ===
-
+// App lifecycle
 app.whenReady().then(() => {
   initializeOrchestrator();
   initializeImageManager();
@@ -701,24 +119,18 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  // Clean up all terminals
-  for (const [id, term] of terminals) {
-    term.kill();
-  }
+  for (const [id, term] of terminals) term.kill();
   terminals.clear();
-
-  // Clean up orchestrator
-  if (orchestrator) {
-    orchestrator.cleanup();
-  }
-
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  for (const [streamId, stream] of activeStreams) stream.aborted = true;
+  activeStreams.clear();
+  if (orchestrator) { orchestrator.cleanup(); orchestrator = null; }
+  modelManager = null;
+  chatManager = null;
+  imageManager = null;
+  terminalConfig = null;
+  if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });

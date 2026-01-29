@@ -30,9 +30,11 @@ class DonnaSidebar {
    * Render the empty state when no sessions exist
    */
   renderEmptyState() {
+    this.sessionList.setAttribute('role', 'list');
+    this.sessionList.setAttribute('aria-label', 'Sessions');
     this.sessionList.innerHTML = `
-      <div class="session-list-empty">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <div class="session-list-empty" role="listitem">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <rect x="4" y="8" width="24" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
           <path d="M8 14h8M8 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
@@ -79,10 +81,16 @@ class DonnaSidebar {
       emptyState.remove();
     }
 
+    // Ensure list has proper ARIA attributes
+    this.sessionList.setAttribute('role', 'list');
+    this.sessionList.setAttribute('aria-label', 'Sessions');
+
     const sessionEl = document.createElement('div');
     const sessionTypeClass = session.type === 'agent' ? 'agent-session' :
                              session.type === 'chat' ? 'chat-session' : 'terminal-session';
     sessionEl.className = `session-item slide-in-left ${sessionTypeClass}`;
+    sessionEl.setAttribute('role', 'listitem');
+    sessionEl.setAttribute('tabindex', '0');
     sessionEl.dataset.sessionId = session.id;
     sessionEl.dataset.sessionType = session.type || 'terminal';
 
@@ -103,8 +111,8 @@ class DonnaSidebar {
         <div class="session-path">${subtitle}</div>
       </div>
       <div class="session-status"></div>
-      <button class="session-close" title="Close session">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <button class="session-close" title="Close session" aria-label="Close ${session.name} session">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </button>
@@ -114,6 +122,15 @@ class DonnaSidebar {
     sessionEl.addEventListener('click', (e) => {
       if (e.target.closest('.session-close')) return;
       window.sessionManager?.switchToSession(session.id);
+    });
+
+    // Keyboard navigation for session items
+    sessionEl.addEventListener('keydown', (e) => {
+      if (e.target.closest('.session-close')) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        window.sessionManager?.switchToSession(session.id);
+      }
     });
 
     // Double-click to rename
@@ -155,11 +172,13 @@ class DonnaSidebar {
   setActiveSession(sessionId) {
     this.sessionList.querySelectorAll('.session-item').forEach(el => {
       el.classList.remove('active');
+      el.setAttribute('aria-selected', 'false');
     });
 
     const sessionEl = this.sessionList.querySelector(`[data-session-id="${sessionId}"]`);
     if (sessionEl) {
       sessionEl.classList.add('active');
+      sessionEl.setAttribute('aria-selected', 'true');
     }
   }
 

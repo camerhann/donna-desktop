@@ -141,19 +141,23 @@ class DonnaApp {
   setupEventListeners() {
     // Command from palette
     window.addEventListener('paletteCommand', (e) => {
-      const { command } = e.detail;
+      const command = e.detail?.command;
+      if (!command) return;
       this.executeCommand(command);
     });
 
     // Action from palette
     window.addEventListener('paletteAction', (e) => {
-      const { actionId } = e.detail;
+      const actionId = e.detail?.actionId;
+      if (!actionId) return;
       this.handlePaletteAction(actionId);
     });
 
     // Workflow command execution
     window.addEventListener('workflowCommand', async (e) => {
-      const { command, onComplete, onError } = e.detail;
+      const command = e.detail?.command;
+      if (!command) return;
+      const { onComplete, onError } = e.detail;
       try {
         await this.executeCommand(command);
         onComplete?.();
@@ -182,7 +186,9 @@ class DonnaApp {
 
     // Feature toggle events
     window.addEventListener('featureToggled', (e) => {
-      const { feature, enabled } = e.detail;
+      const feature = e.detail?.feature;
+      const enabled = e.detail?.enabled;
+      if (!feature) return;
       switch (feature) {
         case 'commandPalette':
           this.commandPalette?.setEnabled(enabled);
@@ -252,11 +258,13 @@ class DonnaApp {
    * Open the agent picker to create a new CLI-based AI session
    */
   openAgentPicker() {
+    console.log('[App] openAgentPicker called');
     this.agentPicker?.open(async (agent) => {
+      console.log('[App] Agent selected:', agent);
       try {
         await this.sessionManager.createAgentSession(agent);
       } catch (error) {
-        console.error('Failed to create agent session:', error);
+        console.error('[App] Failed to create agent session:', error);
       }
     });
   }
@@ -331,7 +339,7 @@ class DonnaApp {
       // Cmd+,: Open model settings (V4)
       if (cmdOrCtrl && e.key === ',') {
         e.preventDefault();
-        this.modelSettings.open();
+        this.modelSettings?.open();
         return;
       }
 
@@ -350,8 +358,8 @@ class DonnaApp {
    * Switch to next session
    */
   switchToNextSession() {
-    const sessions = this.sessionManager.getAllSessions();
-    if (sessions.length <= 1) return;
+    const sessions = this.sessionManager?.getAllSessions();
+    if (!sessions || sessions.length <= 1) return;
 
     const currentIndex = sessions.findIndex(s => s.id === this.sessionManager.activeSessionId);
     const nextIndex = (currentIndex + 1) % sessions.length;
@@ -362,8 +370,8 @@ class DonnaApp {
    * Switch to previous session
    */
   switchToPreviousSession() {
-    const sessions = this.sessionManager.getAllSessions();
-    if (sessions.length <= 1) return;
+    const sessions = this.sessionManager?.getAllSessions();
+    if (!sessions || sessions.length <= 1) return;
 
     const currentIndex = sessions.findIndex(s => s.id === this.sessionManager.activeSessionId);
     const prevIndex = (currentIndex - 1 + sessions.length) % sessions.length;

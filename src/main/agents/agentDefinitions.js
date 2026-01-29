@@ -72,10 +72,31 @@ You excel at technical challenges, coding, and building sophisticated solutions.
   }
 };
 
+// SECURITY: Allowlist of valid CLI commands
+// Reference: OWASP Input Validation - use allowlists over denylists
+const ALLOWED_CLIS = ['claude', 'gemini'];
+
+/**
+ * SECURITY: Validate agent ID against known agents
+ * Prevents injection of arbitrary agent IDs
+ */
+function validateAgentId(agentId) {
+  if (!agentId || typeof agentId !== 'string') {
+    return false;
+  }
+  // Only allow known agent IDs from our definition
+  return Object.prototype.hasOwnProperty.call(agents, agentId);
+}
+
 /**
  * Get CLI command and args for an agent
  */
 function getAgentCliCommand(agentId, workingDir = process.cwd()) {
+  // SECURITY: Validate agent ID before use
+  if (!validateAgentId(agentId)) {
+    throw new Error(`Invalid or unknown agent: ${agentId}`);
+  }
+
   const agent = agents[agentId];
   if (!agent) {
     throw new Error(`Unknown agent: ${agentId}`);
@@ -86,7 +107,15 @@ function getAgentCliCommand(agentId, workingDir = process.cwd()) {
 
   if (agent.cli === 'claude') {
     if (agent.systemPrompt) {
-      args.push('--append-system-prompt', agent.systemPrompt);
+      // Use Claude Code's --agents flag to define the agent, then --agent to use it
+      const agentDef = {
+        [agentId]: {
+          description: agent.description,
+          prompt: agent.systemPrompt
+        }
+      };
+      args.push('--agents', JSON.stringify(agentDef));
+      args.push('--agent', agentId);
     }
   } else if (agent.cli === 'gemini') {
     if (agent.systemPrompt) {
@@ -114,17 +143,30 @@ function listAgents() {
 
 /**
  * Get agent by ID
+ * SECURITY: Uses validateAgentId to prevent prototype pollution
  */
 function getAgent(id) {
+  // SECURITY: Validate agent ID to prevent prototype pollution attacks
+  if (!validateAgentId(id)) {
+    return null;
+  }
   return agents[id] || null;
 }
 
 /**
  * Check if a CLI is available
+ * SECURITY: Only allows checking CLIs from allowlist to prevent command injection
  */
 async function checkCliAvailable(cli) {
+  // SECURITY: Validate CLI against allowlist - prevents command injection
+  // Reference: OWASP Command Injection Prevention
+  if (!cli || typeof cli !== 'string' || !ALLOWED_CLIS.includes(cli)) {
+    return false;
+  }
+
   const { exec } = require('child_process');
   return new Promise((resolve) => {
+    // SECURITY: CLI is now validated against allowlist, safe to use
     exec(`which ${cli}`, (error) => {
       resolve(!error);
     });
@@ -159,5 +201,7 @@ module.exports = {
   listAgents,
   getAgent,
   checkCliAvailable,
-  getAvailableAgents
+  getAvailableAgents,
+  validateAgentId,
+  ALLOWED_CLIS
 };

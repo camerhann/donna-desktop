@@ -132,9 +132,32 @@ class DonnaTerminal {
     this.term.open(terminalBody);
     this.fitAddon.fit();
 
-    // Create the PTY process
+    // Create the PTY process with error handling
     const { cols, rows } = this.term;
-    await window.donnaTerminal.create(this.sessionId, cols, rows);
+    const createResult = await window.donnaTerminal.create(this.sessionId, cols, rows);
+    if (!createResult || !createResult.success) {
+      // Clean up xterm resources on PTY creation failure
+      if (this.fitAddon) {
+        this.fitAddon.dispose();
+        this.fitAddon = null;
+      }
+      if (this.webLinksAddon) {
+        this.webLinksAddon.dispose();
+        this.webLinksAddon = null;
+      }
+      if (this.unicode11Addon) {
+        this.unicode11Addon.dispose();
+        this.unicode11Addon = null;
+      }
+      if (this.term) {
+        this.term.dispose();
+        this.term = null;
+      }
+      if (this.wrapper && this.wrapper.parentNode) {
+        this.wrapper.parentNode.removeChild(this.wrapper);
+      }
+      throw new Error(createResult?.error || 'Failed to create PTY process');
+    }
 
     // Handle data from PTY
     this.cleanupDataListener = window.donnaTerminal.onData(({ id, data }) => {
@@ -183,9 +206,10 @@ class DonnaTerminal {
       window.donnaTerminal.resize(this.sessionId, cols, rows);
     });
 
-    // Bind clear button
+    // Bind clear button - store reference for cleanup
     const clearBtn = this.wrapper.querySelector('.terminal-action-btn[title="Clear"]');
-    clearBtn?.addEventListener('click', () => this.clear());
+    this.clearBtnHandler = () => this.clear();
+    clearBtn?.addEventListener('click', this.clearBtnHandler);
 
     this.isReady = true;
 
@@ -227,9 +251,10 @@ class DonnaTerminal {
   }
 
   startPathUpdates() {
+    if (this._destroyed) return;
     // Update path every 2 seconds when terminal is active
     this.pathInterval = setInterval(() => {
-      if (this.wrapper.classList.contains('active')) {
+      if (this.wrapper?.classList.contains('active')) {
         this.updatePath();
       }
     }, 2000);
@@ -271,6 +296,7 @@ class DonnaTerminal {
    * Show this terminal
    */
   show() {
+    if (!this.wrapper || this._destroyed) return;
     this.wrapper.classList.add('active');
     this.focus();
     this.fit();
@@ -285,6 +311,7 @@ class DonnaTerminal {
    * Hide this terminal
    */
   hide() {
+    if (!this.wrapper || this._destroyed) return;
     this.wrapper.classList.remove('active');
     // Pause path updates when hidden to reduce unnecessary IPC calls
     if (this.pathInterval) {
@@ -333,6 +360,10 @@ class DonnaTerminal {
    * Destroy terminal and clean up
    */
   async destroy() {
+    // Guard against double-cleanup
+    if (this._destroyed) return;
+    this._destroyed = true;
+
     // Clear interval
     if (this.pathInterval) {
       clearInterval(this.pathInterval);
@@ -359,11 +390,50 @@ class DonnaTerminal {
       this.onResizeDisposable = null;
     }
 
+    // Remove clear button event listener
+    if (this.clearBtnHandler && this.wrapper) {
+      const clearBtn = this.wrapper.querySelector('.terminal-action-btn[title="Clear"]');
+      clearBtn?.removeEventListener('click', this.clearBtnHandler);
+      this.clearBtnHandler = null;
+    }
+
+    // Clean up power features (V5)
+    if (this.commandBlocks) {
+      if (typeof this.commandBlocks.destroy === 'function') {
+        this.commandBlocks.destroy();
+      }
+      this.commandBlocks = null;
+    }
+    if (this.aiSuggestions) {
+      if (typeof this.aiSuggestions.destroy === 'function') {
+        this.aiSuggestions.destroy();
+      }
+      this.aiSuggestions = null;
+    }
+
+    // Clear command history reference
+    this.commandHistory = [];
+    this.currentLine = '';
+
     // Kill PTY process
     try {
       await window.donnaTerminal.destroy(this.sessionId);
     } catch (e) {
       console.error('Failed to destroy PTY:', e);
+    }
+
+    // Dispose xterm addons before terminal
+    if (this.fitAddon) {
+      this.fitAddon.dispose();
+      this.fitAddon = null;
+    }
+    if (this.webLinksAddon) {
+      this.webLinksAddon.dispose();
+      this.webLinksAddon = null;
+    }
+    if (this.unicode11Addon) {
+      this.unicode11Addon.dispose();
+      this.unicode11Addon = null;
     }
 
     // Dispose xterm
@@ -376,6 +446,7 @@ class DonnaTerminal {
     if (this.wrapper && this.wrapper.parentNode) {
       this.wrapper.parentNode.removeChild(this.wrapper);
     }
+    this.wrapper = null;
 
     this.isReady = false;
   }

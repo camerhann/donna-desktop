@@ -102,6 +102,18 @@
   box-shadow: 0 0 0 3px var(--donna-accent-glow);
 }
 
+.agent-card:focus-visible {
+  outline: 2px solid var(--donna-accent);
+  outline-offset: 2px;
+  border-color: var(--donna-accent);
+  box-shadow: 0 0 0 4px var(--donna-accent-glow);
+}
+
+.agent-picker-cancel:focus-visible {
+  outline: 2px solid var(--donna-accent);
+  outline-offset: 2px;
+}
+
 .agent-icon {
   width: 48px;
   height: 48px;
