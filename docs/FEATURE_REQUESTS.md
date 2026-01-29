@@ -104,15 +104,43 @@ Features to evaluate/implement:
 
 ---
 
+## 8. Pop-out Preview Viewer
+
+**Problem**: No quick way to preview files (Markdown, Docs, PDFs, code) without leaving the terminal or opening external apps.
+
+**Solution**: Pop-out preview viewer that opens when clicking files in terminal/context sidebar.
+
+**Core features**:
+- Preview support for: Markdown (rendered), Google Docs, PDFs, code (syntax highlighted), plain text, images
+- Floating/detached window, resizable and repositionable
+- Multiple previews open simultaneously
+- Keyboard shortcut for quick-preview
+
+**Nice-to-have - Inline editing**:
+- Make previewed content editable for Markdown, plain text, code files
+- **Terminal awareness**: When user edits and saves in preview, terminal session gets notified of the new version
+- AI context picks up the updated content automatically
+
+**UX flow**:
+1. User sees file in context sidebar or terminal output
+2. Clicks file (or uses shortcut)
+3. Pop-out preview opens
+4. (Optional) User edits content directly
+5. Save triggers notification to terminal
+6. AI references updated content
+
+---
+
 ## Implementation Priority
 
 1. Input Required Indicator (UX critical)
 2. Auto-Scroll Bug Fix (UX critical)
 3. File Deduplication (session quality)
 4. Smart Link Handling (polish)
-5. Better Inline Command Line Features (power feature)
-6. AI Autocomplete (power feature)
-7. Warp features (future roadmap)
+5. Pop-out Preview Viewer (file management)
+6. Better Inline Command Line Features (power feature)
+7. AI Autocomplete (power feature)
+8. Warp features (future roadmap)
 
 ---
 
