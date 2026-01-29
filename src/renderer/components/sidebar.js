@@ -51,6 +51,10 @@ class DonnaSidebar {
       // Agent icon with custom color
       return `<span class="agent-letter" style="color: ${session.agentInfo.color}">${session.agentInfo.icon}</span>`;
     }
+    if (session.type === 'duel') {
+      // Arena/duel icon
+      return `<span class="arena-letter">VS</span>`;
+    }
     if (session.type === 'chat') {
       return `
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

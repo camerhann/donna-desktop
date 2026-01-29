@@ -532,6 +532,62 @@ class SessionManager {
   }
 
   /**
+   * Create a duel/arena session - runs Claude and Gemini side-by-side
+   * Both agents race on the same task in YOLO mode
+   */
+  async createDuelSession(workingDir = null) {
+    console.log('[SessionManager] createDuelSession called, workingDir:', workingDir);
+    const id = this.generateId();
+    const sessionName = `Arena ${this.sessionCounter}`;
+
+    const sessionWorkingDir = workingDir || null;
+
+    const session = {
+      id,
+      name: sessionName,
+      type: 'duel',
+      workingDir: sessionWorkingDir,
+      path: workingDir || '~',
+      createdAt: new Date(),
+      terminal: null,
+      chat: null,
+      duelView: null,
+      pinned: false
+    };
+
+    // Hide welcome screen
+    const welcomeScreen = document.getElementById('welcome-screen');
+    if (welcomeScreen) {
+      welcomeScreen.style.display = 'none';
+    }
+
+    this.terminalContainer?.classList.add('has-terminal');
+
+    // Create DuelView
+    try {
+      const duelView = new window.DuelView(id, this.terminalContainer, {
+        workingDir: sessionWorkingDir
+      });
+      await duelView.init();
+      session.duelView = duelView;
+    } catch (error) {
+      console.error('[SessionManager] Failed to initialize duel view:', error);
+      const welcomeScreen = document.getElementById('welcome-screen');
+      if (welcomeScreen) {
+        welcomeScreen.style.display = 'flex';
+      }
+      this.terminalContainer?.classList.remove('has-terminal');
+      return null;
+    }
+
+    this.sessions.set(id, session);
+    this.sidebar?.addSession(session);
+    await this.switchToSession(id);
+
+    return session;
+  }
+
+  /**
    * Create a chat session (V4) - uses API-based providers
    * NOTE: For CLI-based AI, use createAgentSession instead
    */
@@ -620,6 +676,10 @@ class SessionManager {
       if (currentSession?.agentChat) {
         currentSession.agentChat.hide();
       }
+      // Hide DuelView if present
+      if (currentSession?.duelView) {
+        currentSession.duelView.hide();
+      }
     }
 
     // Show new session
@@ -640,6 +700,8 @@ class SessionManager {
           session.terminal.show();
         }
       }
+    } else if (session.type === 'duel' && session.duelView) {
+      session.duelView.show();
     } else if (session.type === 'chat' && session.chat) {
       session.chat.show();
     }
@@ -678,6 +740,10 @@ class SessionManager {
     // Destroy AgentChat if present
     if (session.agentChat) {
       session.agentChat.destroy();
+    }
+    // Destroy DuelView if present
+    if (session.duelView) {
+      await session.duelView.destroy();
     }
 
     // Remove from sessions

@@ -32,6 +32,21 @@ class AgentPicker {
         <div class="agent-picker-grid" id="agent-grid">
           <!-- Agents will be populated here -->
         </div>
+        <div class="agent-picker-arena" id="arena-section" style="display: none;">
+          <div class="arena-divider">
+            <span>or</span>
+          </div>
+          <button class="arena-btn" id="arena-btn">
+            <div class="arena-icon">
+              <span class="arena-vs">VS</span>
+            </div>
+            <div class="arena-info">
+              <h3 class="arena-title">Agent Arena</h3>
+              <p class="arena-desc">Race Claude vs Gemini on the same task</p>
+            </div>
+            <span class="arena-badge">YOLO Mode</span>
+          </button>
+        </div>
         <div class="agent-picker-workdir">
           <label>Working Directory</label>
           <div class="workdir-input-row">
@@ -56,6 +71,23 @@ class AgentPicker {
 
     // Browse button for working directory
     this.modal.querySelector('.workdir-browse').addEventListener('click', () => this.browseWorkingDir());
+
+    // Arena mode button
+    this.modal.querySelector('#arena-btn').addEventListener('click', () => this.selectArenaMode());
+  }
+
+  /**
+   * Select Arena mode (duel between Claude and Gemini)
+   */
+  selectArenaMode() {
+    console.log('[AgentPicker] Arena mode selected, workingDir:', this.workingDir);
+    const callback = this.onSelectCallback;
+    const workingDir = this.workingDir;
+    this.close();
+    if (callback) {
+      // Pass null agent but with arena flag
+      callback({ id: 'arena', type: 'arena' }, workingDir);
+    }
   }
 
   /**
@@ -106,6 +138,13 @@ class AgentPicker {
       // Get only agents with available CLIs
       this.agents = await window.donnaAgents.available();
       this.renderAgents();
+
+      // Check if arena mode is available (both Claude and Gemini installed)
+      const arenaAvailable = await window.donnaAgents.isArenaAvailable();
+      const arenaSection = this.modal.querySelector('#arena-section');
+      if (arenaAvailable && arenaSection) {
+        arenaSection.style.display = 'block';
+      }
     } catch (error) {
       console.error('Failed to load agents:', error);
       this.renderError('Failed to load agents. Please try again.');

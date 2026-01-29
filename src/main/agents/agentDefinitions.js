@@ -71,6 +71,34 @@ IMPORTANT: Communicate directly without stage directions, asterisks for actions,
     color: '#22d3ee',
     systemPrompt: `You are Donna, a warm and highly capable AI assistant powered by Gemini. Be proactive, friendly, and efficient.`,
     cliArgs: ['-i'] // Use interactive mode with initial prompt
+  },
+
+  // YOLO Mode agents for Arena/Duel sessions
+  // These run with full permissions - no confirmation prompts
+  'claude-yolo': {
+    id: 'claude-yolo',
+    name: 'Claude (YOLO)',
+    description: 'Claude Code with full auto-accept permissions',
+    cli: 'claude',
+    icon: 'C',
+    color: '#a78bfa',
+    systemPrompt: null,
+    cliArgs: ['--dangerously-skip-permissions'],
+    isYolo: true,
+    hidden: true // Don't show in normal agent picker
+  },
+
+  'gemini-yolo': {
+    id: 'gemini-yolo',
+    name: 'Gemini (YOLO)',
+    description: 'Gemini CLI with full auto-accept permissions',
+    cli: 'gemini',
+    icon: 'G',
+    color: '#60a5fa',
+    systemPrompt: null,
+    cliArgs: ['-y'], // Gemini's auto-accept flag
+    isYolo: true,
+    hidden: true // Don't show in normal agent picker
   }
 };
 
@@ -106,6 +134,11 @@ function getAgentCliCommand(agentId, workingDir = process.cwd()) {
 
   const command = agent.cli; // 'claude' or 'gemini'
   const args = [];
+
+  // Add any pre-defined CLI args (like YOLO flags)
+  if (agent.cliArgs && agent.cliArgs.length > 0) {
+    args.push(...agent.cliArgs);
+  }
 
   if (agent.cli === 'claude') {
     if (agent.systemPrompt) {
@@ -177,12 +210,15 @@ async function checkCliAvailable(cli) {
 
 /**
  * Get available agents (only those with installed CLIs)
+ * Excludes hidden agents (like YOLO modes) from normal listing
  */
-async function getAvailableAgents() {
+async function getAvailableAgents(includeHidden = false) {
   const claudeAvailable = await checkCliAvailable('claude');
   const geminiAvailable = await checkCliAvailable('gemini');
 
   return Object.values(agents).filter(a => {
+    // Skip hidden agents unless explicitly requested
+    if (a.hidden && !includeHidden) return false;
     if (a.cli === 'claude') return claudeAvailable;
     if (a.cli === 'gemini') return geminiAvailable;
     return false;
@@ -193,8 +229,18 @@ async function getAvailableAgents() {
     cli: a.cli,
     icon: a.icon,
     color: a.color,
-    available: true
+    available: true,
+    isYolo: a.isYolo || false
   }));
+}
+
+/**
+ * Check if Arena mode is available (both Claude and Gemini installed)
+ */
+async function isArenaAvailable() {
+  const claudeAvailable = await checkCliAvailable('claude');
+  const geminiAvailable = await checkCliAvailable('gemini');
+  return claudeAvailable && geminiAvailable;
 }
 
 module.exports = {
@@ -204,6 +250,7 @@ module.exports = {
   getAgent,
   checkCliAvailable,
   getAvailableAgents,
+  isArenaAvailable,
   validateAgentId,
   ALLOWED_CLIS
 };

@@ -179,7 +179,9 @@ contextBridge.exposeInMainWorld('donnaAgents', {
   checkCli: (cli) => ipcRenderer.invoke('agents:checkCli', { cli }),
   // Create an agent session (spawns the CLI with personality)
   createSession: (id, agentId, cols, rows, workingDir) =>
-    ipcRenderer.invoke('agents:createSession', { id, agentId, cols, rows, workingDir })
+    ipcRenderer.invoke('agents:createSession', { id, agentId, cols, rows, workingDir }),
+  // Check if Arena mode is available (both Claude and Gemini installed)
+  isArenaAvailable: () => ipcRenderer.invoke('agents:isArenaAvailable')
 });
 
 // Config API

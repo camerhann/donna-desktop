@@ -10,7 +10,7 @@ const { validateTerminalId, validateTerminalDimensions } = require('./terminalHa
 
 function registerAgentHandlers(dependencies) {
   const { terminals, getMainWindow, agentDefinitions, getModelManager, initializeOrchestrator } = dependencies;
-  const { listAgents, getAvailableAgents, getAgent, getAgentCliCommand, checkCliAvailable } = agentDefinitions;
+  const { listAgents, getAvailableAgents, getAgent, getAgentCliCommand, checkCliAvailable, isArenaAvailable } = agentDefinitions;
 
   ipcMain.handle('agents:list', () => {
     try { return listAgents(); } catch (error) { console.error('Failed to list agents:', error); return []; }
@@ -26,6 +26,10 @@ function registerAgentHandlers(dependencies) {
 
   ipcMain.handle('agents:checkCli', async (event, { cli }) => {
     try { return await checkCliAvailable(cli); } catch (error) { console.error('Failed to check CLI availability:', error); return false; }
+  });
+
+  ipcMain.handle('agents:isArenaAvailable', async () => {
+    try { return await isArenaAvailable(); } catch (error) { console.error('Failed to check arena availability:', error); return false; }
   });
 
   ipcMain.handle('agents:createSession', (event, { id, agentId, cols, rows, workingDir }) => {

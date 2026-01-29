@@ -272,9 +272,15 @@ class DonnaApp {
     this.agentPicker?.open(async (agent, workingDir) => {
       console.log('[App] Agent selected:', agent, 'workingDir:', workingDir);
       try {
-        await this.sessionManager.createAgentSession(agent, workingDir);
+        if (agent.type === 'arena') {
+          // Create duel/arena session
+          await this.sessionManager.createDuelSession(workingDir);
+        } else {
+          // Create regular agent session
+          await this.sessionManager.createAgentSession(agent, workingDir);
+        }
       } catch (error) {
-        console.error('[App] Failed to create agent session:', error);
+        console.error('[App] Failed to create session:', error);
       }
     });
   }
