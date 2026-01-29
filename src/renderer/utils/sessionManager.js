@@ -11,7 +11,7 @@ class SessionManager {
     this.sidebar = null;
     this.terminalContainer = null;
 
-    // Stream listeners for chat
+    // Stream listeners for chat (V4)
     this.streamListeners = new Map();
     this.setupChatListeners();
   }
@@ -25,7 +25,7 @@ class SessionManager {
   }
 
   /**
-   * Setup chat stream listeners
+   * Setup chat stream listeners (V4)
    */
   setupChatListeners() {
     if (!window.donnaChat) return;
@@ -71,7 +71,7 @@ class SessionManager {
   }
 
   /**
-   * Create a new terminal session
+   * Create a new terminal session (default)
    */
   async createSession(name = null) {
     return this.createTerminalSession(name);
@@ -104,9 +104,21 @@ class SessionManager {
     // Mark container as having terminal
     this.terminalContainer?.classList.add('has-terminal');
 
-    // Create terminal instance
-    const terminal = new DonnaTerminal(id, this.terminalContainer);
-    session.terminal = terminal;
+    // Create terminal instance and await initialization
+    try {
+      const terminal = new DonnaTerminal(id, this.terminalContainer);
+      await terminal.init();
+      session.terminal = terminal;
+    } catch (error) {
+      console.error('Failed to initialize terminal:', error);
+      // Show welcome screen again on failure
+      const welcomeScreen = document.getElementById('welcome-screen');
+      if (welcomeScreen) {
+        welcomeScreen.style.display = 'flex';
+      }
+      this.terminalContainer?.classList.remove('has-terminal');
+      return null;
+    }
 
     // Store session
     this.sessions.set(id, session);
@@ -121,7 +133,7 @@ class SessionManager {
   }
 
   /**
-   * Create a chat session
+   * Create a chat session (V4)
    */
   async createChatSession(name = null, config = {}) {
     const id = this.generateId();
@@ -201,10 +213,21 @@ class SessionManager {
     // Show new session
     this.activeSessionId = sessionId;
 
+    // Brief delay to ensure DOM is ready
     await new Promise(resolve => setTimeout(resolve, 50));
 
+    // Show terminal or chat based on session type
     if (session.type === 'terminal' && session.terminal) {
-      session.terminal.show();
+      // Wait for terminal to be ready before showing (V5 improvement)
+      if (session.terminal.isReady) {
+        session.terminal.show();
+      } else {
+        // Terminal still initializing, wait briefly
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (session.terminal.isReady) {
+          session.terminal.show();
+        }
+      }
     } else if (session.type === 'chat' && session.chat) {
       session.chat.show();
     }

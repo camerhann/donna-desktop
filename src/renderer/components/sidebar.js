@@ -19,27 +19,13 @@ class DonnaSidebar {
       window.sessionManager?.createTerminalSession();
     });
 
-    // New chat session button
+    // New chat session button (V4)
     this.newChatBtn?.addEventListener('click', () => {
       window.sessionManager?.createChatSession();
     });
 
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => {
-      const cmdOrCtrl = e.metaKey || e.ctrlKey;
-
-      // Cmd+T: New terminal
-      if (cmdOrCtrl && e.key === 't') {
-        e.preventDefault();
-        window.sessionManager?.createTerminalSession();
-      }
-
-      // Cmd+N: New chat
-      if (cmdOrCtrl && e.key === 'n') {
-        e.preventDefault();
-        window.sessionManager?.createChatSession();
-      }
-    });
+    // Note: Keyboard shortcuts (Cmd+T, Cmd+N) are handled globally in app.js
+    // to avoid duplicate listeners
 
     // Show empty state initially
     this.renderEmptyState();

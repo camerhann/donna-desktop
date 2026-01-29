@@ -8,6 +8,7 @@ const { ModelManager, ClaudeProvider, GeminiProvider, OllamaProvider, OpenAIComp
 const { createImageManager } = require('./imaging/imageProvider');
 const sdInstaller = require('./imaging/sdInstaller');
 const { ChatManager } = require('./chat/chatManager');
+const { TerminalConfig } = require('./config/terminalConfig');
 
 // Store terminal sessions
 const terminals = new Map();
@@ -27,6 +28,9 @@ let chatManager = null;
 
 // Active streams for chat
 const activeStreams = new Map();
+
+// Terminal configuration
+let terminalConfig = null;
 
 // Config file path
 const configPath = path.join(os.homedir(), '.donna-desktop', 'config.json');
@@ -88,6 +92,14 @@ function initChatManager() {
   return chatManager;
 }
 
+// Initialize terminal config
+function initTerminalConfig() {
+  if (!terminalConfig) {
+    terminalConfig = new TerminalConfig();
+  }
+  return terminalConfig;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -124,7 +136,6 @@ function getDefaultShell() {
 
 // === Terminal IPC Handlers ===
 
-// Create a new terminal session
 ipcMain.handle('terminal:create', (event, { id, cols, rows }) => {
   const shell = getDefaultShell();
 
@@ -158,7 +169,6 @@ ipcMain.handle('terminal:create', (event, { id, cols, rows }) => {
   return { success: true, id };
 });
 
-// Write to terminal
 ipcMain.handle('terminal:write', (event, { id, data }) => {
   const term = terminals.get(id);
   if (term) {
@@ -168,7 +178,6 @@ ipcMain.handle('terminal:write', (event, { id, data }) => {
   return { success: false, error: 'Terminal not found' };
 });
 
-// Resize terminal
 ipcMain.handle('terminal:resize', (event, { id, cols, rows }) => {
   const term = terminals.get(id);
   if (term) {
@@ -178,7 +187,6 @@ ipcMain.handle('terminal:resize', (event, { id, cols, rows }) => {
   return { success: false, error: 'Terminal not found' };
 });
 
-// Destroy terminal
 ipcMain.handle('terminal:destroy', (event, { id }) => {
   const term = terminals.get(id);
   if (term) {
@@ -189,7 +197,6 @@ ipcMain.handle('terminal:destroy', (event, { id }) => {
   return { success: false, error: 'Terminal not found' };
 });
 
-// Get current working directory
 ipcMain.handle('terminal:getCwd', (event, { id }) => {
   const term = terminals.get(id);
   if (term) {
@@ -203,6 +210,48 @@ ipcMain.handle('terminal:getCwd', (event, { id }) => {
     }
   }
   return { success: false, error: 'Terminal not found' };
+});
+
+// === Terminal Config IPC Handlers ===
+
+ipcMain.handle('terminal:getConfig', () => {
+  const config = initTerminalConfig();
+  return config.getConfig();
+});
+
+ipcMain.handle('terminal:isFeatureEnabled', (event, { feature }) => {
+  const config = initTerminalConfig();
+  return config.isFeatureEnabled(feature);
+});
+
+ipcMain.handle('terminal:setFeatureEnabled', (event, { feature, enabled }) => {
+  const config = initTerminalConfig();
+  return config.setFeatureEnabled(feature, enabled);
+});
+
+ipcMain.handle('terminal:updateFeatureSettings', (event, { feature, settings }) => {
+  const config = initTerminalConfig();
+  return config.updateFeatureSettings(feature, settings);
+});
+
+ipcMain.handle('terminal:getWorkflows', () => {
+  const config = initTerminalConfig();
+  return config.getWorkflows();
+});
+
+ipcMain.handle('terminal:addWorkflow', (event, { workflow }) => {
+  const config = initTerminalConfig();
+  return config.addWorkflow(workflow);
+});
+
+ipcMain.handle('terminal:updateWorkflow', (event, { id, updates }) => {
+  const config = initTerminalConfig();
+  return config.updateWorkflow(id, updates);
+});
+
+ipcMain.handle('terminal:deleteWorkflow', (event, { id }) => {
+  const config = initTerminalConfig();
+  return config.deleteWorkflow(id);
 });
 
 // === Model Provider IPC Handlers ===
@@ -550,6 +599,7 @@ app.whenReady().then(() => {
   initializeOrchestrator();
   initializeImageManager();
   initChatManager();
+  initTerminalConfig();
   createWindow();
 });
 

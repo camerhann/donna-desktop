@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="styles/terminal.css">
   <link rel="stylesheet" href="styles/sidebar.css">
   <link rel="stylesheet" href="styles/chat.css">
+  <link rel="stylesheet" href="styles/terminal-power.css">
 </head>
 <body>
   <div id="app">
@@ -88,12 +89,24 @@
   <script src="../../node_modules/@xterm/addon-web-links/lib/addon-web-links.js"></script>
   <script src="../../node_modules/@xterm/addon-unicode11/lib/addon-unicode11.js"></script>
 
+  <!-- Core components -->
   <script src="utils/sessionManager.js"></script>
   <script src="components/terminal.js"></script>
   <script src="components/chatInterface.js"></script>
   <script src="components/sidebar.js"></script>
+
+  <!-- V4: Model settings and image generator -->
   <script src="components/modelSettings.js"></script>
   <script src="components/imageGenerator.js"></script>
+
+  <!-- V5: Terminal power features -->
+  <script src="components/commandBlocks.js"></script>
+  <script src="components/aiSuggestions.js"></script>
+  <script src="components/commandPalette.js"></script>
+  <script src="components/workflowManager.js"></script>
+  <script src="components/terminalSettings.js"></script>
+
+  <!-- Main app -->
   <script src="app.js"></script>
 </body>
 </html>
