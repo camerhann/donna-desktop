@@ -244,6 +244,15 @@ contextBridge.exposeInMainWorld('donnaVoice', {
   }
 });
 
+// Context Sidebar API - Open files, URLs, and directories
+contextBridge.exposeInMainWorld('donnaContext', {
+  openPath: (filePath) => ipcRenderer.invoke('context:open-path', filePath),
+  openExternal: (url) => ipcRenderer.invoke('context:open-external', url),
+  showInFolder: (filePath) => ipcRenderer.invoke('context:show-in-folder', filePath),
+  getHome: () => ipcRenderer.invoke('context:get-home'),
+  pickFolder: (defaultPath) => ipcRenderer.invoke('context:pick-folder', defaultPath)
+});
+
 // Vault API (Phase 7: Obsidian Vault Integration)
 contextBridge.exposeInMainWorld('donnaVault', {
   setPath: (vaultPath) => ipcRenderer.invoke('vault:setPath', { vaultPath }),

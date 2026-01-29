@@ -14,6 +14,7 @@ const { registerLinkHandlers } = require('./linkHandler');
 const { registerFilesHandlers } = require('./filesHandler');
 const { registerVoiceHandlers } = require('./voiceHandler');
 const { registerVaultHandlers } = require('./vaultHandler');
+const { registerContextHandlers } = require('./contextHandler');
 
 function registerAllHandlers(dependencies) {
   registerTerminalHandlers({
@@ -90,6 +91,9 @@ function registerAllHandlers(dependencies) {
   registerVaultHandlers({
     getMainWindow: dependencies.getMainWindow
   });
+
+  // Context sidebar handlers (open files, URLs)
+  registerContextHandlers();
 }
 
 module.exports = { registerAllHandlers };

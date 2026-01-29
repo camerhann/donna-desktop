@@ -74,14 +74,26 @@
             <div class="welcome-logo">D</div>
             <h1>Welcome to Donna Desktop</h1>
             <p>Your beautiful, intuitive terminal experience</p>
-            <button id="start-session-btn" class="primary-btn">
-              Start New Session
-              <span class="shortcut">⌘T</span>
-            </button>
+            <div class="welcome-buttons">
+              <button id="start-session-btn" class="primary-btn">
+                New Terminal
+                <span class="shortcut">⌘T</span>
+              </button>
+              <button id="start-chat-btn" class="primary-btn chat-btn">
+                New Conversation
+                <span class="shortcut">⌘N</span>
+              </button>
+            </div>
+            <p class="welcome-hint">Start a conversation with Donna, Jarvis, or Claude</p>
           </div>
         </div>
       </div>
     </main>
+
+    <!-- Context Sidebar - shows files/links from terminal output -->
+    <aside id="context-sidebar-container" role="complementary" aria-label="Context panel">
+      <!-- ContextSidebar component will be mounted here -->
+    </aside>
   </div>
 
   <!-- Load xterm CSS from node_modules -->
@@ -119,9 +131,12 @@
 
   <!-- Agent system -->
   <script src="components/agentPicker.js"></script>
+  <!-- agentChat.js contains inline fallback versions of components -->
+  <!-- The full versions below will override them -->
+  <script src="components/agentChat.js"></script>
   <script src="components/agentInputBar.js"></script>
   <script src="components/agentChatRenderer.js"></script>
-  <script src="components/agentChat.js"></script>
+  <script src="components/contextSidebar.js"></script>
 
   <!-- Phase 2-7: Additional features -->
   <script src="components/linkPreview.js"></script>

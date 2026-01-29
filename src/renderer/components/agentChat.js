@@ -594,8 +594,9 @@ class AgentChat {
     this.ptyWrite = options.ptyWrite || (() => {});
 
     // Components
+    // Use window.* to allow external files to provide enhanced versions
     this.parser = new ClaudeOutputParser();
-    this.renderer = new AgentChatRenderer({ agent: this.agent });
+    this.renderer = new (window.AgentChatRenderer || AgentChatRenderer)({ agent: this.agent });
     this.inputBar = null;
 
     // State
@@ -670,8 +671,9 @@ class AgentChat {
       </div>
     `;
 
-    // Create input bar
-    this.inputBar = new AgentInputBar({
+    // Create input bar (use window.* for enhanced version if available)
+    const InputBarClass = window.AgentInputBar || AgentInputBar;
+    this.inputBar = new InputBarClass({
       agent: this.agent,
       onSubmit: (message) => this.sendMessage(message),
       onCancel: () => this.cancelOperation()

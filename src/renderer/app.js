@@ -17,6 +17,8 @@ class DonnaApp {
     this.config = null;
     // Agent picker for CLI-based AI sessions
     this.agentPicker = null;
+    // Context sidebar for files/links from terminal output
+    this.contextSidebar = null;
   }
 
   /**
@@ -51,16 +53,24 @@ class DonnaApp {
     // Initialize agent picker for CLI-based AI sessions
     this.agentPicker = new AgentPicker();
 
+    // Initialize context sidebar for files/links extraction
+    this.initContextSidebar();
+
     // Bind new chat button to open agent picker
     const newChatBtn = document.getElementById('new-chat-btn');
     newChatBtn?.addEventListener('click', () => {
       this.openAgentPicker();
     });
 
-    // Bind welcome screen button
+    // Bind welcome screen buttons
     const startBtn = document.getElementById('start-session-btn');
     startBtn?.addEventListener('click', () => {
       this.sessionManager.createSession();
+    });
+
+    const startChatBtn = document.getElementById('start-chat-btn');
+    startChatBtn?.addEventListener('click', () => {
+      this.openAgentPicker();
     });
 
     // Bind settings button - opens terminal settings (V5)
@@ -259,14 +269,66 @@ class DonnaApp {
    */
   openAgentPicker() {
     console.log('[App] openAgentPicker called');
-    this.agentPicker?.open(async (agent) => {
-      console.log('[App] Agent selected:', agent);
+    this.agentPicker?.open(async (agent, workingDir) => {
+      console.log('[App] Agent selected:', agent, 'workingDir:', workingDir);
       try {
-        await this.sessionManager.createAgentSession(agent);
+        await this.sessionManager.createAgentSession(agent, workingDir);
       } catch (error) {
         console.error('[App] Failed to create agent session:', error);
       }
     });
+  }
+
+  /**
+   * Initialize the context sidebar for files/links extraction
+   */
+  initContextSidebar() {
+    if (!window.ContextSidebar) {
+      console.warn('ContextSidebar not available');
+      return;
+    }
+
+    const container = document.getElementById('context-sidebar-container');
+    if (!container) {
+      console.warn('Context sidebar container not found');
+      return;
+    }
+
+    this.contextSidebar = new window.ContextSidebar(container);
+    this.contextSidebar.show(); // Start visible
+
+    // Hook into PTY data stream to extract files/links
+    this.setupContextParsing();
+
+    // Make available globally
+    window.contextSidebar = this.contextSidebar;
+  }
+
+  /**
+   * Setup PTY data parsing for context extraction
+   */
+  setupContextParsing() {
+    if (!this.contextSidebar) return;
+
+    // Listen to PTY data from all terminals
+    window.donnaTerminal?.onData?.(({ id, data }) => {
+      const session = this.sessionManager.sessions.get(id);
+      if (!session) return;
+
+      // Parse and extract files/links
+      this.contextSidebar.processPtyData(
+        data,
+        id,
+        session.name || 'Session'
+      );
+    });
+
+    // Update active session in context sidebar when switching
+    const originalSwitch = this.sessionManager.switchToSession.bind(this.sessionManager);
+    this.sessionManager.switchToSession = async (sessionId) => {
+      await originalSwitch(sessionId);
+      this.contextSidebar?.setActiveSession(sessionId);
+    };
   }
 
   /**
@@ -323,6 +385,13 @@ class DonnaApp {
         if (sessions[index]) {
           this.sessionManager.switchToSession(sessions[index].id);
         }
+        return;
+      }
+
+      // Cmd+.: Toggle context sidebar
+      if (cmdOrCtrl && e.key === '.') {
+        e.preventDefault();
+        this.contextSidebar?.toggle();
         return;
       }
 

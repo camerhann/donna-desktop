@@ -111,6 +111,12 @@ class DonnaSidebar {
         <div class="session-path">${subtitle}</div>
       </div>
       <div class="session-status"></div>
+      <button class="session-pin" title="Pin session" aria-label="Pin ${session.name} session">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M6 1v4M4 5h4l-1 4H5L4 5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M6 9v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
       <button class="session-close" title="Close session" aria-label="Close ${session.name} session">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -139,6 +145,13 @@ class DonnaSidebar {
       this.enableRename(session.id);
     });
 
+    // Pin button
+    const pinBtn = sessionEl.querySelector('.session-pin');
+    pinBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      window.sessionManager?.togglePin(session.id);
+    });
+
     // Close button
     const closeBtn = sessionEl.querySelector('.session-close');
     closeBtn.addEventListener('click', (e) => {
@@ -146,7 +159,71 @@ class DonnaSidebar {
       window.sessionManager?.closeSession(session.id);
     });
 
-    this.sessionList.appendChild(sessionEl);
+    // Check if session is pinned and update UI
+    if (session.pinned) {
+      sessionEl.classList.add('pinned');
+      pinBtn.title = 'Unpin session';
+      pinBtn.setAttribute('aria-label', `Unpin ${session.name} session`);
+    }
+
+    // Insert in correct position (pinned sessions first)
+    this.insertSessionInOrder(sessionEl, session.pinned);
+  }
+
+  /**
+   * Insert session element in correct order (pinned first)
+   */
+  insertSessionInOrder(sessionEl, isPinned) {
+    if (isPinned) {
+      // Insert pinned sessions at the top, but after other pinned sessions
+      const firstUnpinned = this.sessionList.querySelector('.session-item:not(.pinned)');
+      if (firstUnpinned) {
+        this.sessionList.insertBefore(sessionEl, firstUnpinned);
+      } else {
+        this.sessionList.appendChild(sessionEl);
+      }
+    } else {
+      // Insert unpinned sessions at the end
+      this.sessionList.appendChild(sessionEl);
+    }
+  }
+
+  /**
+   * Update pinned state of a session in the UI
+   */
+  setPinned(sessionId, isPinned) {
+    const sessionEl = this.sessionList.querySelector(`[data-session-id="${sessionId}"]`);
+    if (!sessionEl) return;
+
+    const pinBtn = sessionEl.querySelector('.session-pin');
+    const sessionName = sessionEl.querySelector('.session-name')?.textContent || 'session';
+
+    if (isPinned) {
+      sessionEl.classList.add('pinned');
+      pinBtn.title = 'Unpin session';
+      pinBtn.setAttribute('aria-label', `Unpin ${sessionName} session`);
+    } else {
+      sessionEl.classList.remove('pinned');
+      pinBtn.title = 'Pin session';
+      pinBtn.setAttribute('aria-label', `Pin ${sessionName} session`);
+    }
+
+    // Re-sort the session list
+    this.sortSessions();
+  }
+
+  /**
+   * Sort sessions with pinned ones at top
+   */
+  sortSessions() {
+    const items = Array.from(this.sessionList.querySelectorAll('.session-item'));
+    const pinned = items.filter(el => el.classList.contains('pinned'));
+    const unpinned = items.filter(el => !el.classList.contains('pinned'));
+
+    // Re-append in order: pinned first, then unpinned
+    [...pinned, ...unpinned].forEach(el => {
+      this.sessionList.appendChild(el);
+    });
   }
 
   /**

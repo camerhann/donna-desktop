@@ -10,6 +10,7 @@ class AgentPicker {
     this.agents = [];
     this.selectedAgent = null;
     this.onSelectCallback = null;
+    this.workingDir = null; // Will be set to home directory on open
     this.init();
   }
 
@@ -31,6 +32,17 @@ class AgentPicker {
         <div class="agent-picker-grid" id="agent-grid">
           <!-- Agents will be populated here -->
         </div>
+        <div class="agent-picker-workdir">
+          <label>Working Directory</label>
+          <div class="workdir-input-row">
+            <input type="text" class="workdir-path" readonly placeholder="Loading...">
+            <button class="workdir-browse" title="Browse...">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 3h4l1 1h5a1 1 0 011 1v6a1 1 0 01-1 1H2a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/>
+              </svg>
+            </button>
+          </div>
+        </div>
         <div class="agent-picker-footer">
           <button class="agent-picker-cancel">Cancel</button>
         </div>
@@ -41,6 +53,37 @@ class AgentPicker {
     // Close on backdrop click
     this.modal.querySelector('.agent-picker-backdrop').addEventListener('click', () => this.close());
     this.modal.querySelector('.agent-picker-cancel').addEventListener('click', () => this.close());
+
+    // Browse button for working directory
+    this.modal.querySelector('.workdir-browse').addEventListener('click', () => this.browseWorkingDir());
+  }
+
+  /**
+   * Browse for a working directory
+   */
+  async browseWorkingDir() {
+    try {
+      const result = await window.donnaContext?.pickFolder(this.workingDir);
+      if (result?.success && result.path) {
+        this.workingDir = result.path;
+        this.updateWorkingDirDisplay();
+      }
+    } catch (error) {
+      console.error('Failed to pick folder:', error);
+    }
+  }
+
+  /**
+   * Update the working directory display
+   */
+  updateWorkingDirDisplay() {
+    const input = this.modal.querySelector('.workdir-path');
+    if (input && this.workingDir) {
+      // Show shortened path for display
+      const home = this.workingDir.replace(/^\/Users\/[^/]+/, '~');
+      input.value = home;
+      input.title = this.workingDir; // Full path on hover
+    }
   }
 
   setupKeyboardShortcuts() {
@@ -137,24 +180,34 @@ class AgentPicker {
   }
 
   selectAgent(agent) {
-    console.log('[AgentPicker] selectAgent called with:', agent);
+    console.log('[AgentPicker] selectAgent called with:', agent, 'workingDir:', this.workingDir);
     this.selectedAgent = agent;
-    // Save callback before close() nullifies it
+    // Save callback and workingDir before close() nullifies them
     const callback = this.onSelectCallback;
+    const workingDir = this.workingDir;
     this.close();
     if (callback) {
-      console.log('[AgentPicker] Calling onSelectCallback');
-      callback(agent);
+      console.log('[AgentPicker] Calling onSelectCallback with workingDir:', workingDir);
+      callback(agent, workingDir);
     } else {
       console.log('[AgentPicker] No onSelectCallback set!');
     }
   }
 
-  open(onSelect) {
+  async open(onSelect) {
     this.onSelectCallback = onSelect;
     this.selectedAgent = null;
     // Store the currently focused element to restore focus on close
     this.previouslyFocusedElement = document.activeElement;
+
+    // Load home directory as default working dir
+    try {
+      this.workingDir = await window.donnaContext?.getHome() || '~';
+    } catch (e) {
+      this.workingDir = '~';
+    }
+    this.updateWorkingDirDisplay();
+
     this.loadAgents();
     this.modal.classList.add('active');
 

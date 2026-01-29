@@ -19,9 +19,9 @@
 
 /* Sidebar header - with space for traffic lights on macOS */
 .sidebar-header {
-  height: var(--titlebar-height);
   padding: var(--spacing-lg);
-  padding-top: calc(var(--spacing-lg) + 8px);
+  padding-top: 38px; /* Clear macOS traffic lights */
+  padding-bottom: var(--spacing-md);
   display: flex;
   align-items: center;
 }
@@ -210,6 +210,58 @@
 
 .session-status.inactive {
   background: var(--donna-text-dim);
+}
+
+/* Session pin button */
+.session-pin {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--donna-text-muted);
+  opacity: 0;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.session-item:hover .session-pin {
+  opacity: 1;
+}
+
+.session-pin:hover {
+  background: var(--donna-bg-elevated);
+  color: var(--donna-accent);
+}
+
+.session-pin:focus-visible {
+  outline: 2px solid var(--donna-accent);
+  outline-offset: 1px;
+  opacity: 1;
+}
+
+/* Pinned session styling */
+.session-item.pinned .session-pin {
+  opacity: 1;
+  color: var(--donna-accent);
+}
+
+.session-item.pinned .session-pin svg {
+  fill: var(--donna-accent);
+  fill-opacity: 0.3;
+}
+
+.session-item.pinned::after {
+  content: '';
+  position: absolute;
+  right: var(--spacing-sm);
+  top: var(--spacing-xs);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--donna-accent);
+  opacity: 0.7;
 }
 
 /* Session close button */

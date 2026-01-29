@@ -16,7 +16,11 @@ class SessionManager {
     this.setupChatListeners();
 
     // Feature flag for rich agent chat UI
-    this.enableAgentChatUI = true;
+    // Disabled for now - using terminal view with personalities instead
+    this.enableAgentChatUI = false;
+
+    // Pinned sessions persistence key
+    this.PINNED_STORAGE_KEY = 'donna-pinned-sessions';
   }
 
   /**
@@ -25,6 +29,122 @@ class SessionManager {
   init(sidebar, terminalContainer) {
     this.sidebar = sidebar;
     this.terminalContainer = terminalContainer;
+
+    // Restore pinned sessions after a brief delay for components to initialize
+    setTimeout(() => this.restorePinnedSessions(), 100);
+  }
+
+  /**
+   * Toggle pin state for a session
+   */
+  togglePin(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    session.pinned = !session.pinned;
+    this.sidebar?.setPinned(sessionId, session.pinned);
+
+    // Update persistent storage
+    if (session.pinned) {
+      this.savePinnedSession(session);
+    } else {
+      this.removePinnedSession(sessionId);
+    }
+  }
+
+  /**
+   * Get pinned sessions from localStorage
+   */
+  getPinnedSessions() {
+    try {
+      const stored = localStorage.getItem(this.PINNED_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error('Failed to load pinned sessions:', e);
+      return [];
+    }
+  }
+
+  /**
+   * Save a session to pinned storage
+   */
+  savePinnedSession(session) {
+    const pinned = this.getPinnedSessions();
+
+    // Don't duplicate
+    if (pinned.find(p => p.originalId === session.id)) return;
+
+    // Store session config for restoration
+    const config = {
+      originalId: session.id,
+      name: session.name,
+      type: session.type,
+      agentId: session.agentId || null,
+      agentInfo: session.agentInfo || null,
+      workingDir: session.workingDir || session.path || '~',
+      pinnedAt: Date.now()
+    };
+
+    pinned.push(config);
+    localStorage.setItem(this.PINNED_STORAGE_KEY, JSON.stringify(pinned));
+  }
+
+  /**
+   * Remove a session from pinned storage
+   */
+  removePinnedSession(sessionId) {
+    let pinned = this.getPinnedSessions();
+    pinned = pinned.filter(p => p.originalId !== sessionId);
+    localStorage.setItem(this.PINNED_STORAGE_KEY, JSON.stringify(pinned));
+  }
+
+  /**
+   * Restore pinned sessions on app load
+   */
+  async restorePinnedSessions() {
+    const pinned = this.getPinnedSessions();
+    if (!pinned.length) return;
+
+    console.log('[SessionManager] Restoring pinned sessions:', pinned);
+
+    for (const config of pinned) {
+      try {
+        let session = null;
+
+        if (config.type === 'agent' && config.agentInfo) {
+          // Restore agent session
+          session = await this.createAgentSession(config.agentInfo, config.workingDir);
+        } else if (config.type === 'terminal') {
+          // Restore terminal session
+          session = await this.createTerminalSession(config.name);
+        }
+
+        if (session) {
+          // Mark as pinned
+          session.pinned = true;
+          this.sidebar?.setPinned(session.id, true);
+
+          // Update storage with new session ID
+          this.updatePinnedSessionId(config.originalId, session.id);
+        }
+      } catch (error) {
+        console.error('[SessionManager] Failed to restore pinned session:', config, error);
+        // Remove failed session from storage
+        this.removePinnedSession(config.originalId);
+      }
+    }
+  }
+
+  /**
+   * Update session ID in pinned storage after restoration
+   */
+  updatePinnedSessionId(oldId, newId) {
+    const pinned = this.getPinnedSessions();
+    const session = pinned.find(p => p.originalId === oldId);
+    if (session) {
+      session.originalId = newId;
+      localStorage.setItem(this.PINNED_STORAGE_KEY, JSON.stringify(pinned));
+    }
   }
 
   /**
@@ -126,7 +246,8 @@ class SessionManager {
       path: '~',
       createdAt: new Date(),
       terminal: null,
-      chat: null
+      chat: null,
+      pinned: false
     };
 
     // Hide welcome screen
@@ -170,11 +291,17 @@ class SessionManager {
    * Create an agent session (V5) - spawns CLI with personality
    * This is the PRIMARY way to create AI sessions (uses installed CLIs, not API)
    * Now with rich AgentChat UI that wraps xterm
+   * @param {Object} agent - Agent configuration
+   * @param {string} workingDir - Optional working directory (defaults to home)
    */
-  async createAgentSession(agent) {
-    console.log('[SessionManager] createAgentSession called with agent:', agent);
+  async createAgentSession(agent, workingDir = null) {
+    console.log('[SessionManager] createAgentSession called with agent:', agent, 'workingDir:', workingDir);
     const id = this.generateId();
     const sessionName = agent.name || `Agent ${this.sessionCounter}`;
+
+    // Use provided workingDir, or default to home directory
+    // The home directory will be resolved on the backend
+    const sessionWorkingDir = workingDir || null; // null = let backend use os.homedir()
 
     // Create session object
     const session = {
@@ -183,11 +310,13 @@ class SessionManager {
       type: 'agent',
       agentId: agent.id,
       agentInfo: agent,
-      path: '~',
+      workingDir: sessionWorkingDir,
+      path: workingDir || '~',
       createdAt: new Date(),
       terminal: null,
       chat: null,      // V4 API chat (not used for agents)
-      agentChat: null  // V5 AgentChat component
+      agentChat: null, // V5 AgentChat component
+      pinned: false
     };
 
     // Hide welcome screen
@@ -220,7 +349,7 @@ class SessionManager {
       terminal.init = async () => {
         // Create terminal wrapper
         terminal.wrapper = document.createElement('div');
-        terminal.wrapper.className = 'terminal-wrapper agent-terminal-hidden';
+        terminal.wrapper.className = 'terminal-wrapper';
         terminal.wrapper.id = `terminal-${terminal.sessionId}`;
         terminal.wrapper.innerHTML = `
           <div class="terminal-header">
@@ -314,8 +443,8 @@ class SessionManager {
 
         // Create the PTY process using agents API (spawns CLI with personality)
         const { cols, rows } = terminal.term;
-        console.log('[SessionManager] Calling donnaAgents.createSession:', terminal.sessionId, agent.id, cols, rows);
-        const result = await window.donnaAgents.createSession(terminal.sessionId, agent.id, cols, rows);
+        console.log('[SessionManager] Calling donnaAgents.createSession:', terminal.sessionId, agent.id, cols, rows, sessionWorkingDir);
+        const result = await window.donnaAgents.createSession(terminal.sessionId, agent.id, cols, rows, sessionWorkingDir);
         console.log('[SessionManager] donnaAgents.createSession result:', result);
 
         if (!result.success) {
@@ -439,7 +568,8 @@ class SessionManager {
       model: backendSession.model,
       createdAt: new Date(),
       terminal: null,
-      chat: null
+      chat: null,
+      pinned: false
     };
 
     // Hide welcome screen
@@ -486,6 +616,10 @@ class SessionManager {
       if (currentSession?.chat) {
         currentSession.chat.hide();
       }
+      // Also hide AgentChat if present
+      if (currentSession?.agentChat) {
+        currentSession.agentChat.hide();
+      }
     }
 
     // Show new session
@@ -496,7 +630,7 @@ class SessionManager {
 
     // Show terminal or chat based on session type
     if ((session.type === 'terminal' || session.type === 'agent') && session.terminal) {
-      // Wait for terminal to be ready before showing (V5 improvement)
+      // Regular terminal session
       if (session.terminal.isReady) {
         session.terminal.show();
       } else {
@@ -522,6 +656,11 @@ class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
+    // Remove from pinned storage if pinned
+    if (session.pinned) {
+      this.removePinnedSession(sessionId);
+    }
+
     // Clean up any orphaned streams for this session
     for (const [streamId, sid] of this.streamListeners.entries()) {
       if (sid === sessionId) {
@@ -535,6 +674,10 @@ class SessionManager {
     }
     if (session.chat) {
       await session.chat.destroy();
+    }
+    // Destroy AgentChat if present
+    if (session.agentChat) {
+      session.agentChat.destroy();
     }
 
     // Remove from sessions
