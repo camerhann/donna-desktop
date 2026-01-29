@@ -78,6 +78,20 @@
   color: var(--donna-text-muted);
 }
 
+.session-buttons {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+/* Chat session styling */
+.session-item.chat-session .session-icon {
+  color: var(--donna-info, #60a5fa);
+}
+
+.session-item.chat-session.active .session-icon {
+  color: var(--donna-accent);
+}
+
 /* Session list */
 .session-list {
   flex: 1;

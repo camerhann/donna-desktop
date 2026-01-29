@@ -29,3 +29,51 @@ contextBridge.exposeInMainWorld('platform', {
   isWindows: process.platform === 'win32',
   isLinux: process.platform === 'linux'
 });
+
+// Chat API
+contextBridge.exposeInMainWorld('donnaChat', {
+  // Session management
+  createSession: (config = {}) => ipcRenderer.invoke('chat:createSession', config),
+  getSession: (sessionId) => ipcRenderer.invoke('chat:getSession', { sessionId }),
+  listSessions: () => ipcRenderer.invoke('chat:listSessions'),
+  deleteSession: (sessionId) => ipcRenderer.invoke('chat:deleteSession', { sessionId }),
+  renameSession: (sessionId, name) => ipcRenderer.invoke('chat:renameSession', { sessionId, name }),
+  updateSession: (sessionId, updates) => ipcRenderer.invoke('chat:updateSession', { sessionId, updates }),
+
+  // Messaging
+  sendMessage: (sessionId, content) => ipcRenderer.invoke('chat:sendMessage', { sessionId, content }),
+  streamMessage: (sessionId, content) => {
+    const streamId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    ipcRenderer.invoke('chat:streamMessage', { sessionId, content, streamId });
+    return { streamId };
+  },
+  abortStream: (streamId) => ipcRenderer.invoke('chat:abortStream', { streamId }),
+
+  // Provider management
+  listProviders: () => ipcRenderer.invoke('chat:listProviders'),
+  updateProviderConfig: (provider, config) => ipcRenderer.invoke('chat:updateProviderConfig', { provider, config }),
+  getConfig: () => ipcRenderer.invoke('chat:getConfig'),
+  setDefaultProvider: (provider) => ipcRenderer.invoke('chat:setDefaultProvider', { provider }),
+
+  // Stream event listeners
+  onStreamChunk: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:streamChunk', handler);
+    return () => ipcRenderer.removeListener('chat:streamChunk', handler);
+  },
+  onStreamComplete: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:streamComplete', handler);
+    return () => ipcRenderer.removeListener('chat:streamComplete', handler);
+  },
+  onStreamError: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:streamError', handler);
+    return () => ipcRenderer.removeListener('chat:streamError', handler);
+  },
+  onUserMessage: (callback) => {
+    const handler = (event, data) => callback(data);
+    ipcRenderer.on('chat:userMessage', handler);
+    return () => ipcRenderer.removeListener('chat:userMessage', handler);
+  }
+});

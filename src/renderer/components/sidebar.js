@@ -1,6 +1,6 @@
 /**
  * Donna Desktop - Sidebar Component
- * Slack-style session management sidebar
+ * Slack-style session management sidebar with Terminal and Chat support
  */
 
 class DonnaSidebar {
@@ -8,21 +8,36 @@ class DonnaSidebar {
     this.sessionList = document.getElementById('session-list');
     this.newSessionBtn = document.getElementById('new-session-btn');
     this.settingsBtn = document.getElementById('settings-btn');
+    this.newChatBtn = document.getElementById('new-chat-btn');
 
     this.init();
   }
 
   init() {
-    // Bind new session button
+    // New terminal session button
     this.newSessionBtn?.addEventListener('click', () => {
-      window.sessionManager?.createSession();
+      window.sessionManager?.createTerminalSession();
     });
 
-    // Keyboard shortcut for new session (Cmd+T)
+    // New chat session button
+    this.newChatBtn?.addEventListener('click', () => {
+      window.sessionManager?.createChatSession();
+    });
+
+    // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+      const cmdOrCtrl = e.metaKey || e.ctrlKey;
+
+      // Cmd+T: New terminal
+      if (cmdOrCtrl && e.key === 't') {
         e.preventDefault();
-        window.sessionManager?.createSession();
+        window.sessionManager?.createTerminalSession();
+      }
+
+      // Cmd+N: New chat
+      if (cmdOrCtrl && e.key === 'n') {
+        e.preventDefault();
+        window.sessionManager?.createChatSession();
       }
     });
 
@@ -40,8 +55,32 @@ class DonnaSidebar {
           <rect x="4" y="8" width="24" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
           <path d="M8 14h8M8 18h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <p>No sessions yet.<br/>Press <strong>⌘T</strong> to start.</p>
+        <p>No sessions yet.<br/><strong>⌘T</strong> Terminal · <strong>⌘N</strong> Chat</p>
       </div>
+    `;
+  }
+
+  /**
+   * Get icon SVG based on session type
+   */
+  getSessionIcon(type) {
+    if (type === 'chat') {
+      return `
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3v-3a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <circle cx="5" cy="7.5" r="1" fill="currentColor"/>
+          <circle cx="8" cy="7.5" r="1" fill="currentColor"/>
+          <circle cx="11" cy="7.5" r="1" fill="currentColor"/>
+        </svg>
+      `;
+    }
+    // Terminal icon
+    return `
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M5 7l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M9 11h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
     `;
   }
 
@@ -56,18 +95,21 @@ class DonnaSidebar {
     }
 
     const sessionEl = document.createElement('div');
-    sessionEl.className = 'session-item slide-in-left';
+    sessionEl.className = `session-item slide-in-left ${session.type === 'chat' ? 'chat-session' : 'terminal-session'}`;
     sessionEl.dataset.sessionId = session.id;
+    sessionEl.dataset.sessionType = session.type || 'terminal';
+
+    const subtitle = session.type === 'chat'
+      ? session.provider || 'Claude'
+      : session.path || '~';
+
     sessionEl.innerHTML = `
       <div class="session-icon">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M5 7l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0"/>
-        </svg>
+        ${this.getSessionIcon(session.type)}
       </div>
       <div class="session-info">
         <div class="session-name">${session.name}</div>
-        <div class="session-path">${session.path || '~'}</div>
+        <div class="session-path">${subtitle}</div>
       </div>
       <div class="session-status"></div>
       <button class="session-close" title="Close session">
@@ -79,9 +121,14 @@ class DonnaSidebar {
 
     // Click to select session
     sessionEl.addEventListener('click', (e) => {
-      // Don't trigger if clicking close button
       if (e.target.closest('.session-close')) return;
       window.sessionManager?.switchToSession(session.id);
+    });
+
+    // Double-click to rename
+    sessionEl.addEventListener('dblclick', (e) => {
+      if (e.target.closest('.session-close')) return;
+      this.enableRename(session.id);
     });
 
     // Close button
@@ -104,7 +151,6 @@ class DonnaSidebar {
       sessionEl.style.transform = 'translateX(-10px)';
       setTimeout(() => {
         sessionEl.remove();
-        // Show empty state if no sessions left
         if (this.sessionList.children.length === 0) {
           this.renderEmptyState();
         }
@@ -116,12 +162,10 @@ class DonnaSidebar {
    * Set the active session in the sidebar
    */
   setActiveSession(sessionId) {
-    // Remove active class from all sessions
     this.sessionList.querySelectorAll('.session-item').forEach(el => {
       el.classList.remove('active');
     });
 
-    // Add active class to selected session
     const sessionEl = this.sessionList.querySelector(`[data-session-id="${sessionId}"]`);
     if (sessionEl) {
       sessionEl.classList.add('active');
@@ -129,7 +173,7 @@ class DonnaSidebar {
   }
 
   /**
-   * Update session info (name, path)
+   * Update session info (name, path, provider)
    */
   updateSession(sessionId, updates) {
     const sessionEl = this.sessionList.querySelector(`[data-session-id="${sessionId}"]`);
@@ -138,9 +182,9 @@ class DonnaSidebar {
         const nameEl = sessionEl.querySelector('.session-name');
         if (nameEl) nameEl.textContent = updates.name;
       }
-      if (updates.path) {
+      if (updates.path || updates.provider) {
         const pathEl = sessionEl.querySelector('.session-path');
-        if (pathEl) pathEl.textContent = updates.path;
+        if (pathEl) pathEl.textContent = updates.path || updates.provider;
       }
       if (updates.status !== undefined) {
         const statusEl = sessionEl.querySelector('.session-status');
@@ -161,19 +205,20 @@ class DonnaSidebar {
     const nameEl = sessionEl.querySelector('.session-name');
     const currentName = nameEl.textContent;
 
-    // Create input
     const input = document.createElement('input');
     input.type = 'text';
     input.value = currentName;
+    input.className = 'session-rename-input';
     input.style.cssText = `
       width: 100%;
-      background: var(--donna-bg-secondary);
-      border: 1px solid var(--donna-accent);
+      background: var(--donna-bg-secondary, #27272a);
+      border: 1px solid var(--donna-accent, #a78bfa);
       border-radius: 4px;
       padding: 2px 6px;
-      color: var(--donna-text-primary);
+      color: var(--donna-text-primary, #e4e4e7);
       font-size: 13px;
       font-weight: 500;
+      outline: none;
     `;
 
     nameEl.replaceWith(input);

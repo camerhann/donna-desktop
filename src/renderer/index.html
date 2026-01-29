@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles/main.css">
   <link rel="stylesheet" href="styles/terminal.css">
   <link rel="stylesheet" href="styles/sidebar.css">
+  <link rel="stylesheet" href="styles/chat.css">
 </head>
 <body>
   <div id="app">
@@ -23,11 +24,23 @@
       <div class="sessions-section">
         <div class="section-header">
           <span class="section-title">Sessions</span>
-          <button id="new-session-btn" class="icon-btn" title="New Session (⌘T)">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </button>
+          <div class="session-buttons">
+            <button id="new-session-btn" class="icon-btn" title="New Terminal (⌘T)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                <path d="M5 7l2 2-2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 11h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button id="new-chat-btn" class="icon-btn" title="New Chat (⌘N)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3v-3a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                <circle cx="5" cy="7.5" r="1" fill="currentColor"/>
+                <circle cx="8" cy="7.5" r="1" fill="currentColor"/>
+                <circle cx="11" cy="7.5" r="1" fill="currentColor"/>
+              </svg>
+            </button>
+          </div>
         </div>
         <div id="session-list" class="session-list">
           <!-- Sessions will be added here dynamically -->
@@ -71,6 +84,7 @@
 
   <script src="utils/sessionManager.js"></script>
   <script src="components/terminal.js"></script>
+  <script src="components/chatInterface.js"></script>
   <script src="components/sidebar.js"></script>
   <script src="app.js"></script>
 </body>
