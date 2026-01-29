@@ -92,6 +92,16 @@
   color: var(--donna-accent);
 }
 
+/* Agent session styling */
+.session-item.agent-session .session-icon .agent-letter {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.session-item.agent-session.active .session-icon .agent-letter {
+  filter: brightness(1.2);
+}
+
 /* Session list */
 .session-list {
   flex: 1;

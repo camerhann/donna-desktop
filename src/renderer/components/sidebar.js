@@ -19,13 +19,8 @@ class DonnaSidebar {
       window.sessionManager?.createTerminalSession();
     });
 
-    // New chat session button (V4)
-    this.newChatBtn?.addEventListener('click', () => {
-      window.sessionManager?.createChatSession();
-    });
-
-    // Note: Keyboard shortcuts (Cmd+T, Cmd+N) are handled globally in app.js
-    // to avoid duplicate listeners
+    // Note: New chat/agent button is handled by app.js to open agent picker
+    // Keyboard shortcuts (Cmd+T, Cmd+N) are also handled globally in app.js
 
     // Show empty state initially
     this.renderEmptyState();
@@ -47,10 +42,14 @@ class DonnaSidebar {
   }
 
   /**
-   * Get icon SVG based on session type
+   * Get icon for session based on type and agent info
    */
-  getSessionIcon(type) {
-    if (type === 'chat') {
+  getSessionIcon(session) {
+    if (session.type === 'agent' && session.agentInfo) {
+      // Agent icon with custom color
+      return `<span class="agent-letter" style="color: ${session.agentInfo.color}">${session.agentInfo.icon}</span>`;
+    }
+    if (session.type === 'chat') {
       return `
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3v-3a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
@@ -81,17 +80,23 @@ class DonnaSidebar {
     }
 
     const sessionEl = document.createElement('div');
-    sessionEl.className = `session-item slide-in-left ${session.type === 'chat' ? 'chat-session' : 'terminal-session'}`;
+    const sessionTypeClass = session.type === 'agent' ? 'agent-session' :
+                             session.type === 'chat' ? 'chat-session' : 'terminal-session';
+    sessionEl.className = `session-item slide-in-left ${sessionTypeClass}`;
     sessionEl.dataset.sessionId = session.id;
     sessionEl.dataset.sessionType = session.type || 'terminal';
 
-    const subtitle = session.type === 'chat'
-      ? session.provider || 'Claude'
-      : session.path || '~';
+    // Determine subtitle based on session type
+    let subtitle = session.path || '~';
+    if (session.type === 'agent' && session.agentInfo) {
+      subtitle = session.agentInfo.cli || 'claude';
+    } else if (session.type === 'chat') {
+      subtitle = session.provider || 'Claude';
+    }
 
     sessionEl.innerHTML = `
       <div class="session-icon">
-        ${this.getSessionIcon(session.type)}
+        ${this.getSessionIcon(session)}
       </div>
       <div class="session-info">
         <div class="session-name">${session.name}</div>

@@ -167,6 +167,21 @@ contextBridge.exposeInMainWorld('donnaChat', {
   }
 });
 
+// Agents API - Pre-defined AI personalities wrapping Claude Code and Gemini CLIs
+contextBridge.exposeInMainWorld('donnaAgents', {
+  // List all defined agents
+  list: () => ipcRenderer.invoke('agents:list'),
+  // List only agents with available CLIs
+  available: () => ipcRenderer.invoke('agents:available'),
+  // Get a specific agent by ID
+  get: (id) => ipcRenderer.invoke('agents:get', { id }),
+  // Check if a CLI is installed
+  checkCli: (cli) => ipcRenderer.invoke('agents:checkCli', { cli }),
+  // Create an agent session (spawns the CLI with personality)
+  createSession: (id, agentId, cols, rows, workingDir) =>
+    ipcRenderer.invoke('agents:createSession', { id, agentId, cols, rows, workingDir })
+});
+
 // Config API
 contextBridge.exposeInMainWorld('donnaConfig', {
   get: () => ipcRenderer.invoke('config:get'),

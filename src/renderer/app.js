@@ -15,6 +15,8 @@ class DonnaApp {
     this.workflowManager = null;
     this.terminalSettings = null;
     this.config = null;
+    // Agent picker for CLI-based AI sessions
+    this.agentPicker = null;
   }
 
   /**
@@ -45,6 +47,15 @@ class DonnaApp {
 
     // Initialize power features (V5)
     await this.initPowerFeatures();
+
+    // Initialize agent picker for CLI-based AI sessions
+    this.agentPicker = new AgentPicker();
+
+    // Bind new chat button to open agent picker
+    const newChatBtn = document.getElementById('new-chat-btn');
+    newChatBtn?.addEventListener('click', () => {
+      this.openAgentPicker();
+    });
 
     // Bind welcome screen button
     const startBtn = document.getElementById('start-session-btn');
@@ -222,6 +233,9 @@ class DonnaApp {
       case 'new-terminal':
         this.sessionManager.createSession();
         break;
+      case 'new-agent':
+        this.openAgentPicker();
+        break;
       case 'clear-terminal':
         const activeSession = this.sessionManager.getActiveSession();
         if (activeSession?.terminal) {
@@ -232,6 +246,19 @@ class DonnaApp {
         this.terminalSettings?.toggle();
         break;
     }
+  }
+
+  /**
+   * Open the agent picker to create a new CLI-based AI session
+   */
+  openAgentPicker() {
+    this.agentPicker?.open(async (agent) => {
+      try {
+        await this.sessionManager.createAgentSession(agent);
+      } catch (error) {
+        console.error('Failed to create agent session:', error);
+      }
+    });
   }
 
   /**
@@ -249,10 +276,10 @@ class DonnaApp {
         return;
       }
 
-      // Cmd+N: New chat session (V4)
+      // Cmd+N: Open agent picker to create new AI session
       if (cmdOrCtrl && e.key === 'n') {
         e.preventDefault();
-        this.sessionManager.createChatSession();
+        this.openAgentPicker();
         return;
       }
 

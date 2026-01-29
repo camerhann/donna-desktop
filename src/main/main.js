@@ -9,6 +9,7 @@ const { createImageManager } = require('./imaging/imageProvider');
 const sdInstaller = require('./imaging/sdInstaller');
 const { ChatManager } = require('./chat/chatManager');
 const { TerminalConfig } = require('./config/terminalConfig');
+const { listAgents, getAvailableAgents, getAgent, getAgentCliCommand, checkCliAvailable } = require('./agents/agentDefinitions');
 
 // Store terminal sessions
 const terminals = new Map();
@@ -252,6 +253,70 @@ ipcMain.handle('terminal:updateWorkflow', (event, { id, updates }) => {
 ipcMain.handle('terminal:deleteWorkflow', (event, { id }) => {
   const config = initTerminalConfig();
   return config.deleteWorkflow(id);
+});
+
+// === Agent IPC Handlers ===
+// These handlers manage pre-defined AI personalities that wrap Claude Code and Gemini CLIs
+
+ipcMain.handle('agents:list', () => {
+  return listAgents();
+});
+
+ipcMain.handle('agents:available', async () => {
+  return await getAvailableAgents();
+});
+
+ipcMain.handle('agents:get', (event, { id }) => {
+  return getAgent(id);
+});
+
+ipcMain.handle('agents:checkCli', async (event, { cli }) => {
+  return await checkCliAvailable(cli);
+});
+
+// Create an agent session - spawns the CLI with personality prompt
+ipcMain.handle('agents:createSession', (event, { id, agentId, cols, rows, workingDir }) => {
+  const { command, args, agent } = getAgentCliCommand(agentId, workingDir || os.homedir());
+
+  const ptyProcess = pty.spawn(command, args, {
+    name: 'xterm-256color',
+    cols: cols || 80,
+    rows: rows || 24,
+    cwd: workingDir || os.homedir(),
+    env: {
+      ...process.env,
+      TERM: 'xterm-256color',
+      COLORTERM: 'truecolor'
+    }
+  });
+
+  terminals.set(id, ptyProcess);
+
+  ptyProcess.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal:data', { id, data });
+    }
+  });
+
+  ptyProcess.onExit(({ exitCode }) => {
+    terminals.delete(id);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('terminal:exit', { id, exitCode });
+    }
+  });
+
+  return {
+    success: true,
+    id,
+    agent: {
+      id: agent.id,
+      name: agent.name,
+      description: agent.description,
+      icon: agent.icon,
+      color: agent.color,
+      cli: agent.cli
+    }
+  };
 });
 
 // AI Suggestions handler for terminal

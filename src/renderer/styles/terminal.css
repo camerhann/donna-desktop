@@ -55,6 +55,25 @@
   color: var(--donna-text-secondary);
 }
 
+/* Agent badge in terminal header */
+.terminal-agent-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.terminal-agent-badge .agent-icon {
+  font-weight: 700;
+}
+
+.terminal-agent-badge .agent-name {
+  font-weight: 500;
+}
+
 .terminal-path {
   font-size: 11px;
   color: var(--donna-text-muted);
