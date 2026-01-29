@@ -13,7 +13,7 @@ const os = require('os');
  */
 class ChatMessage {
   constructor(role, content, metadata = {}) {
-    this.id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    this.id = Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
     this.role = role; // 'user', 'assistant', 'system'
     this.content = content;
     this.timestamp = Date.now();
@@ -184,7 +184,7 @@ class ChatManager {
    * Create a new chat session
    */
   createSession(config = {}) {
-    const id = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
     const session = new ChatSession(id, {
       name: config.name || this.generateSessionName(),
       provider: config.provider || this.config.defaultProvider || 'claude',

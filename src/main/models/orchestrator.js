@@ -372,7 +372,7 @@ Only respond with the JSON array, no other text.`;
    * Generate unique ID
    */
   generateId() {
-    return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+    return Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
   }
 
   /**

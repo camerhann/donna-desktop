@@ -50,7 +50,7 @@ contextBridge.exposeInMainWorld('donnaModels', {
   listProviders: () => ipcRenderer.invoke('models:listProviders'),
   chat: (messages, options = {}) => ipcRenderer.invoke('models:chat', { messages, options }),
   stream: (messages, options = {}) => {
-    const streamId = Math.random().toString(36).substr(2, 9);
+    const streamId = Math.random().toString(36).substring(2, 11);
     return {
       streamId,
       start: () => ipcRenderer.invoke('models:streamStart', { streamId, messages, options })
@@ -79,7 +79,7 @@ contextBridge.exposeInMainWorld('donnaOrchestrator', {
   terminateAgent: (agentId) => ipcRenderer.invoke('orchestrator:terminateAgent', { agentId }),
   createTask: (config) => ipcRenderer.invoke('orchestrator:createTask', config),
   streamTask: (config) => {
-    const streamId = Math.random().toString(36).substr(2, 9);
+    const streamId = Math.random().toString(36).substring(2, 11);
     return {
       streamId,
       start: () => ipcRenderer.invoke('orchestrator:streamTask', { streamId, config })
@@ -136,7 +136,7 @@ contextBridge.exposeInMainWorld('donnaChat', {
   updateSession: (sessionId, updates) => ipcRenderer.invoke('chat:updateSession', { sessionId, updates }),
   sendMessage: (sessionId, content) => ipcRenderer.invoke('chat:sendMessage', { sessionId, content }),
   streamMessage: (sessionId, content) => {
-    const streamId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+    const streamId = Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
     ipcRenderer.invoke('chat:streamMessage', { sessionId, content, streamId });
     return { streamId };
   },

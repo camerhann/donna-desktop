@@ -183,11 +183,15 @@ class DonnaTerminal {
       if (result.success && result.cwd) {
         const pathEl = this.wrapper.querySelector(`#path-${this.sessionId}`);
         if (pathEl) {
-          // Shorten home directory
+          // Shorten home directory (cross-platform)
           let displayPath = result.cwd;
-          const home = '/Users/' + result.cwd.split('/')[2];
-          if (displayPath.startsWith(home)) {
-            displayPath = '~' + displayPath.slice(home.length);
+          // Try to detect home directory from path structure
+          const homeMatch = result.cwd.match(/^(\/Users\/[^/]+|\/home\/[^/]+|[A-Z]:\\Users\\[^\\]+)/);
+          if (homeMatch) {
+            const home = homeMatch[1];
+            if (displayPath.startsWith(home)) {
+              displayPath = '~' + displayPath.slice(home.length);
+            }
           }
           pathEl.textContent = displayPath;
           pathEl.title = result.cwd;
